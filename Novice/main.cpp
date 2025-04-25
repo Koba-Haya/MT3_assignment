@@ -14,13 +14,34 @@ struct Matrix4x4 {
 	float m[4][4];
 };
 
-// クロス積
+/// <summary>
+/// クロス積
+/// </summary>
+/// <param name="v1">計算されるベクトル１</param>
+/// <param name="v2">計算されるベクトル２</param>
+/// <returns>計算された結果</returns>
 Vector3 Cross(const Vector3& v1, const Vector3& v2);
 
-// 透視投影行列
+/// <summary>
+/// 透視投影行列
+/// </summary>
+/// <param name="fovY">画角Y</param>
+/// <param name="aspectRatio">アスペクト比</param>
+/// <param name="nearClip">近平面への距離</param>
+/// <param name="farClip">遠平面への距離</param>
+/// <returns>切り取る範囲</returns>
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip);
 
-// ビューポート変換行列
+/// <summary>
+/// ビューポート変換行列
+/// </summary>
+/// <param name="left">左座標</param>
+/// <param name="top">上座標</param>
+/// <param name="width">幅</param>
+/// <param name="height">高さ</param>
+/// <param name="minDepth">最小深度値</param>
+/// <param name="maxDepth">最大深度値</param>
+/// <returns>スクリーン座標系</returns>
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth);
 
 /// <summary>
