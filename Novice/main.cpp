@@ -1,4 +1,5 @@
 #include <Novice.h>
+#include <cmath>
 
 const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_00_02";
 
@@ -6,49 +7,14 @@ struct Matrix4x4 {
 	float m[4][4];
 };
 
-/// <summary>
-/// 行列の加法
-/// </summary>
-/// <param name="m1">計算される行列1</param>
-/// <param name="m2">計算される行列2</param>
-/// <returns>計算結果</returns>
-Matrix4x4 Add(const Matrix4x4& m1, const Matrix4x4& m2);
+// 透視投影行列
+Matrix4x4 MakePerspectiveFovMatri(float fovY, float aspectRatio, float nearClip, float farClip);
 
-/// <summary>
-/// 行列の減法
-/// </summary>
-/// <param name="m1">計算される行列1</param>
-/// <param name="m2">計算される行列2</param>
-/// <returns>計算結果</returns>
-Matrix4x4 Subtract(const Matrix4x4& m1, const Matrix4x4& m2);
+// 正射影行列
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip);
 
-/// <summary>
-/// 行列の積
-/// </summary>
-/// <param name="m1">計算される行列1</param>
-/// <param name="m2">計算される行列2</param>
-/// <returns>計算結果</returns>
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2);
-
-/// <summary>
-/// 逆行列
-/// </summary>
-/// <param name="m">変換される行列</param>
-/// <returns>変換結果</returns>
-Matrix4x4 Inverse(const Matrix4x4& m);
-
-/// <summary>
-/// 転置行列
-/// </summary>
-/// <param name="m">変換される行列</param>
-/// <returns>変換結果</returns>
-Matrix4x4 Transpose(const Matrix4x4& m);
-
-/// <summary>
-/// 単位行列作成関数
-/// </summary>
-/// <returns>作成された行列</returns>
-Matrix4x4 MakeIdentity4x4();
+// ビューポート変換行列
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth);
 
 static const int kRowHeight = 20;
 static const int kColumnWidth = 60;
@@ -81,18 +47,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	/* 初期化
 	--------------------------------------*/
-	Matrix4x4 m1 = {3.2f, 0.7f, 9.6f, 4.4f, 5.5f, 1.3f, 7.8f, 2.1f, 6.9f, 8.0f, 2.6f, 1.0f, 0.5f, 7.2f, 5.1f, 3.3f};
-
-	Matrix4x4 m2 = {4.1f, 6.5f, 3.3f, 2.2f, 8.8f, 0.6f, 9.9f, 7.7f, 1.1f, 5.5f, 6.6f, 0.0f, 3.3f, 9.9f, 8.8f, 2.2f};
-
-	Matrix4x4 resultAdd = Add(m1, m2);
-	Matrix4x4 resultMultiply = Multiply(m1, m2);
-	Matrix4x4 resultSubtract = Subtract(m1, m2);
-	Matrix4x4 inverseM1 = Inverse(m1);
-	Matrix4x4 inverseM2 = Inverse(m2);
-	Matrix4x4 transposeM1 = Transpose(m1);
-	Matrix4x4 transposeM2 = Transpose(m2);
-	Matrix4x4 identity = MakeIdentity4x4();
+	Matrix4x4 orthographicMatrix = MakeOrthographicMatrix(-160.0f, 160.0f, 200.0f, 300.0f, 0.0f, 1000.0f);
+	Matrix4x4 perspectiveFovMatrix = MakePerspectiveFovMatri(0.63f, 1.33f, 0.1f, 1000.0f);
+	Matrix4x4 viewportMatrix = MakeViewportMatrix(100.0f, 200.0f, 600.0f, 300.0f, 0.0f, 1.0f);
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -115,14 +72,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		MatrixScreenPrintf(0, 0, resultAdd, "Add");
-		MatrixScreenPrintf(0, kRowHeight * 5, resultSubtract, "Subtract");
-		MatrixScreenPrintf(0, kRowHeight * 5 * 2, resultMultiply, "Multiply");
-		MatrixScreenPrintf(0, kRowHeight * 5 * 3, inverseM1, "inverseM1");
-		MatrixScreenPrintf(0, kRowHeight * 5 * 4, inverseM2, "inverseM2");
-		MatrixScreenPrintf(kColumnWidth * 5, 0, transposeM1, "transposeM1");
-		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5, transposeM2, "transposeM2");
-		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5 * 2, identity, "identity");
+		MatrixScreenPrintf(0, 0, orthographicMatrix, "orthographicMatrix");
+		MatrixScreenPrintf(0, kRowHeight * 5, perspectiveFovMatrix, "perspectiveFovMatrix");
+		MatrixScreenPrintf(0, kRowHeight * 10, viewportMatrix, "viewportMatrix");
 
 		///
 		/// ↑描画処理ここまで
@@ -142,129 +94,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	return 0;
 }
 
-Matrix4x4 Add(const Matrix4x4& m1, const Matrix4x4& m2) {
+Matrix4x4 MakePerspectiveFovMatri(float fovY, float aspectRatio, float nearClip, float farClip) {
 	Matrix4x4 result;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			result.m[i][j] = m1.m[i][j] + m2.m[i][j];
-		}
-	}
+	result = {(1.0f / aspectRatio) * (1.0f / std::tanf(fovY / 2.0f)), 0, 0, 0, 0, (1.0f / std::tanf(fovY / 2.0f)), 0, 0, 0, 0, farClip / (farClip - nearClip), 1, 0, 0,
+	          (-nearClip * farClip) / (farClip - nearClip),           0};
 	return result;
 }
 
-Matrix4x4 Subtract(const Matrix4x4& m1, const Matrix4x4& m2) {
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip) {
 	Matrix4x4 result;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			result.m[i][j] = m1.m[i][j] - m2.m[i][j];
-		}
-	}
+	result = {2.0f / (right - left),           0, 0, 0, 0, 2.0f / (top - bottom), 0, 0, 0, 0, 1.0f / (farClip - nearClip), 0, (left + right) / (left - right), (top + bottom) / (bottom - top),
+	          nearClip / (nearClip - farClip), 1};
 	return result;
 }
 
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
 	Matrix4x4 result;
-	result.m[0][0] = m1.m[0][0] * m2.m[0][0] + m1.m[0][1] * m2.m[1][0] + m1.m[0][2] * m2.m[2][0] + m1.m[0][3] * m2.m[3][0];
-	result.m[0][1] = m1.m[0][0] * m2.m[0][1] + m1.m[0][1] * m2.m[1][1] + m1.m[0][2] * m2.m[2][1] + m1.m[0][3] * m2.m[3][1];
-	result.m[0][2] = m1.m[0][0] * m2.m[0][2] + m1.m[0][1] * m2.m[1][2] + m1.m[0][2] * m2.m[2][2] + m1.m[0][3] * m2.m[3][2];
-	result.m[0][3] = m1.m[0][0] * m2.m[0][3] + m1.m[0][1] * m2.m[1][3] + m1.m[0][2] * m2.m[2][3] + m1.m[0][3] * m2.m[3][3];
-	result.m[1][0] = m1.m[1][0] * m2.m[0][0] + m1.m[1][1] * m2.m[1][0] + m1.m[1][2] * m2.m[2][0] + m1.m[1][3] * m2.m[3][0];
-	result.m[1][1] = m1.m[1][0] * m2.m[0][1] + m1.m[1][1] * m2.m[1][1] + m1.m[1][2] * m2.m[2][1] + m1.m[1][3] * m2.m[3][1];
-	result.m[1][2] = m1.m[1][0] * m2.m[0][2] + m1.m[1][1] * m2.m[1][2] + m1.m[1][2] * m2.m[2][2] + m1.m[1][3] * m2.m[3][2];
-	result.m[1][3] = m1.m[1][0] * m2.m[0][3] + m1.m[1][1] * m2.m[1][3] + m1.m[1][2] * m2.m[2][3] + m1.m[1][3] * m2.m[3][3];
-	result.m[2][0] = m1.m[2][0] * m2.m[0][0] + m1.m[2][1] * m2.m[1][0] + m1.m[2][2] * m2.m[2][0] + m1.m[2][3] * m2.m[3][0];
-	result.m[2][1] = m1.m[2][0] * m2.m[0][1] + m1.m[2][1] * m2.m[1][1] + m1.m[2][2] * m2.m[2][1] + m1.m[2][3] * m2.m[3][1];
-	result.m[2][2] = m1.m[2][0] * m2.m[0][2] + m1.m[2][1] * m2.m[1][2] + m1.m[2][2] * m2.m[2][2] + m1.m[2][3] * m2.m[3][2];
-	result.m[2][3] = m1.m[2][0] * m2.m[0][3] + m1.m[2][1] * m2.m[1][3] + m1.m[2][2] * m2.m[2][3] + m1.m[2][3] * m2.m[3][3];
-	result.m[3][0] = m1.m[3][0] * m2.m[0][0] + m1.m[3][1] * m2.m[1][0] + m1.m[3][2] * m2.m[2][0] + m1.m[3][3] * m2.m[3][0];
-	result.m[3][1] = m1.m[3][0] * m2.m[0][1] + m1.m[3][1] * m2.m[1][1] + m1.m[3][2] * m2.m[2][1] + m1.m[3][3] * m2.m[3][1];
-	result.m[3][2] = m1.m[3][0] * m2.m[0][2] + m1.m[3][1] * m2.m[1][2] + m1.m[3][2] * m2.m[2][2] + m1.m[3][3] * m2.m[3][2];
-	result.m[3][3] = m1.m[3][0] * m2.m[0][3] + m1.m[3][1] * m2.m[1][3] + m1.m[3][2] * m2.m[2][3] + m1.m[3][3] * m2.m[3][3];
-	return result;
-}
-
-Matrix4x4 Inverse(const Matrix4x4& m) {
-	float determinant;
-	determinant =
-	    m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3] + m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1] + m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2] - m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1] -
-	    m.m[0][0] * m.m[1][2] * m.m[2][1] * m.m[3][3] - m.m[0][0] * m.m[1][1] * m.m[2][3] * m.m[3][2] - m.m[0][1] * m.m[1][0] * m.m[2][2] * m.m[3][3] - m.m[0][2] * m.m[1][0] * m.m[2][3] * m.m[3][1] -
-	    m.m[0][3] * m.m[1][0] * m.m[2][1] * m.m[3][2] + m.m[0][3] * m.m[1][0] * m.m[2][2] * m.m[3][1] + m.m[0][2] * m.m[1][0] * m.m[2][1] * m.m[3][3] + m.m[0][1] * m.m[1][0] * m.m[2][3] * m.m[3][2] +
-	    m.m[0][1] * m.m[1][2] * m.m[2][0] * m.m[3][3] + m.m[0][2] * m.m[1][3] * m.m[2][0] * m.m[3][1] + m.m[0][3] * m.m[1][1] * m.m[2][0] * m.m[3][2] - m.m[0][3] * m.m[1][2] * m.m[2][0] * m.m[3][1] -
-	    m.m[0][2] * m.m[1][1] * m.m[2][0] * m.m[3][3] - m.m[0][1] * m.m[1][3] * m.m[2][0] * m.m[3][2] - m.m[0][1] * m.m[1][2] * m.m[2][3] * m.m[3][0] - m.m[0][2] * m.m[1][3] * m.m[2][1] * m.m[3][0] -
-	    m.m[0][3] * m.m[1][1] * m.m[2][2] * m.m[3][0] + m.m[0][3] * m.m[1][2] * m.m[2][1] * m.m[3][0] + m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0] + m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0];
-	Matrix4x4 result;
-	result = {
-	    (m.m[1][1] * m.m[2][2] * m.m[3][3] + m.m[1][2] * m.m[2][3] * m.m[3][1] + m.m[1][3] * m.m[2][1] * m.m[3][2] - m.m[1][3] * m.m[2][2] * m.m[3][1] - m.m[1][2] * m.m[2][1] * m.m[3][3] -
-	     m.m[1][1] * m.m[2][3] * m.m[3][2]) /
-	        determinant,
-	    (-m.m[0][1] * m.m[2][2] * m.m[3][3] - m.m[0][2] * m.m[2][3] * m.m[3][1] - m.m[0][3] * m.m[2][1] * m.m[3][2] + m.m[0][3] * m.m[2][2] * m.m[3][1] + m.m[0][2] * m.m[2][1] * m.m[3][3] +
-	     m.m[0][1] * m.m[2][3] * m.m[3][2]) /
-	        determinant,
-	    (m.m[0][1] * m.m[1][2] * m.m[3][3] + m.m[0][2] * m.m[1][3] * m.m[3][1] + m.m[0][3] * m.m[1][1] * m.m[3][2] - m.m[0][3] * m.m[1][2] * m.m[3][1] - m.m[0][2] * m.m[1][1] * m.m[3][3] -
-	     m.m[0][1] * m.m[1][3] * m.m[3][2]) /
-	        determinant,
-	    (-m.m[0][1] * m.m[1][2] * m.m[2][3] - m.m[0][2] * m.m[1][3] * m.m[2][1] - m.m[0][3] * m.m[1][1] * m.m[2][2] + m.m[0][3] * m.m[1][2] * m.m[2][1] + m.m[0][2] * m.m[1][1] * m.m[2][3] +
-	     m.m[0][1] * m.m[1][3] * m.m[2][2]) /
-	        determinant,
-	    (-m.m[1][0] * m.m[2][2] * m.m[3][3] - m.m[1][2] * m.m[2][3] * m.m[3][0] - m.m[1][3] * m.m[2][0] * m.m[3][2] + m.m[1][3] * m.m[2][2] * m.m[3][0] + m.m[1][2] * m.m[2][0] * m.m[3][3] +
-	     m.m[1][0] * m.m[2][3] * m.m[3][2]) /
-	        determinant,
-	    (m.m[0][0] * m.m[2][2] * m.m[3][3] + m.m[0][2] * m.m[2][3] * m.m[3][0] + m.m[0][3] * m.m[2][0] * m.m[3][2] - m.m[0][3] * m.m[2][2] * m.m[3][0] - m.m[0][2] * m.m[2][0] * m.m[3][3] -
-	     m.m[0][0] * m.m[2][3] * m.m[3][2]) /
-	        determinant,
-	    (-m.m[0][0] * m.m[1][2] * m.m[3][3] - m.m[0][2] * m.m[1][3] * m.m[3][0] - m.m[0][3] * m.m[1][0] * m.m[3][2] + m.m[0][3] * m.m[1][2] * m.m[3][0] + m.m[0][2] * m.m[1][0] * m.m[3][3] +
-	     m.m[0][0] * m.m[1][3] * m.m[3][2]) /
-	        determinant,
-	    (m.m[0][0] * m.m[1][2] * m.m[2][3] + m.m[0][2] * m.m[1][3] * m.m[2][0] + m.m[0][3] * m.m[1][0] * m.m[2][2] - m.m[0][3] * m.m[1][2] * m.m[2][0] - m.m[0][2] * m.m[1][0] * m.m[2][3] -
-	     m.m[0][0] * m.m[1][3] * m.m[2][2]) /
-	        determinant,
-	    (m.m[1][0] * m.m[2][1] * m.m[3][3] + m.m[1][1] * m.m[2][3] * m.m[3][0] + m.m[1][3] * m.m[2][0] * m.m[3][1] - m.m[1][3] * m.m[2][1] * m.m[3][0] - m.m[1][1] * m.m[2][0] * m.m[3][3] -
-	     m.m[1][0] * m.m[2][3] * m.m[3][1]) /
-	        determinant,
-	    (-m.m[0][0] * m.m[2][1] * m.m[3][3] - m.m[0][1] * m.m[2][3] * m.m[3][0] - m.m[0][3] * m.m[2][0] * m.m[3][1] + m.m[0][3] * m.m[2][1] * m.m[3][0] + m.m[0][1] * m.m[2][0] * m.m[3][3] +
-	     m.m[0][0] * m.m[2][3] * m.m[3][1]) /
-	        determinant,
-	    (m.m[0][0] * m.m[1][1] * m.m[3][3] + m.m[0][1] * m.m[1][3] * m.m[3][0] + m.m[0][3] * m.m[1][0] * m.m[3][1] - m.m[0][3] * m.m[1][1] * m.m[3][0] - m.m[0][1] * m.m[1][0] * m.m[3][3] -
-	     m.m[0][0] * m.m[1][3] * m.m[3][1]) /
-	        determinant,
-	    (-m.m[0][0] * m.m[1][1] * m.m[2][3] - m.m[0][1] * m.m[1][3] * m.m[2][0] - m.m[0][3] * m.m[1][0] * m.m[2][1] + m.m[0][3] * m.m[1][1] * m.m[2][0] + m.m[0][1] * m.m[1][0] * m.m[2][3] +
-	     m.m[0][0] * m.m[1][3] * m.m[2][1]) /
-	        determinant,
-	    (-m.m[1][0] * m.m[2][1] * m.m[3][2] - m.m[1][1] * m.m[2][2] * m.m[3][0] - m.m[1][2] * m.m[2][0] * m.m[3][1] + m.m[1][2] * m.m[2][1] * m.m[3][0] + m.m[1][1] * m.m[2][0] * m.m[3][2] +
-	     m.m[1][0] * m.m[2][2] * m.m[3][1]) /
-	        determinant,
-	    (m.m[0][0] * m.m[2][1] * m.m[3][2] + m.m[0][1] * m.m[2][2] * m.m[3][0] + m.m[0][2] * m.m[2][0] * m.m[3][1] - m.m[0][2] * m.m[2][1] * m.m[3][0] - m.m[0][1] * m.m[2][0] * m.m[3][2] -
-	     m.m[0][0] * m.m[2][2] * m.m[3][1]) /
-	        determinant,
-	    (-m.m[0][0] * m.m[1][1] * m.m[3][2] - m.m[0][1] * m.m[1][2] * m.m[3][0] - m.m[0][2] * m.m[1][0] * m.m[3][1] + m.m[0][2] * m.m[1][1] * m.m[3][0] + m.m[0][1] * m.m[1][0] * m.m[3][2] +
-	     m.m[0][0] * m.m[1][2] * m.m[3][1]) /
-	        determinant,
-	    (m.m[0][0] * m.m[1][1] * m.m[2][2] + m.m[0][1] * m.m[1][2] * m.m[2][0] + m.m[0][2] * m.m[1][0] * m.m[2][1] - m.m[0][2] * m.m[1][1] * m.m[2][0] - m.m[0][1] * m.m[1][0] * m.m[2][2] -
-	     m.m[0][0] * m.m[1][2] * m.m[2][1]) /
-	        determinant};
-	return result;
-}
-
-Matrix4x4 Transpose(const Matrix4x4& m) {
-	Matrix4x4 result;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			result.m[i][j] = m.m[j][i];
-		}
-	}
-	return result;
-}
-
-Matrix4x4 MakeIdentity4x4() {
-	Matrix4x4 result;
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			if (i == j) {
-				result.m[i][j] = 1;
-			} else {
-				result.m[i][j] = 0;
-			}
-		}
-	}
+	result = {width / 2.0f, 0, 0, 0, 0, -height / 2.0f, 0, 0, 0, 0, maxDepth - minDepth, 0, left + (width / 2.0f), top + (height / 2.0f), minDepth, 1};
 	return result;
 }
