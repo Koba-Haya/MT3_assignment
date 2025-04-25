@@ -1,7 +1,7 @@
 #include <Novice.h>
 #include <cmath>
 
-const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_00_02";
+const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_01_00";
 
 struct Matrix4x4 {
 	float m[4][4];
