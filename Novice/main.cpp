@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <cmath>
 
-const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_01_01";
+const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_01_02";
 
 struct Vector3 {
 	float x;
@@ -108,6 +108,8 @@ static const int kColumnHeight = 20;
 /// <param name="vector">描画する計算された値</param>
 /// <param name="label">計算の種類</param>
 void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
+
+void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix);
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -376,4 +378,15 @@ void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label) 
 	Novice::ScreenPrintf(x + kColumnWidth, y, "%.02f", vector.y);
 	Novice::ScreenPrintf(x + kColumnWidth * 2, y, "%.02f", vector.z);
 	Novice::ScreenPrintf(x + kColumnWidth * 3, y, "%s", label);
+}
+
+void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
+	const float kGridHalfWidth = 2.0f;                                                   // Gridの半分幅
+	const uint32_t kSubdivision = 10;                                                    // 分割数
+	const float kGridEvery = (kGridHalfWidth * 2.0f) / static_cast<float>(kSubdivision); // 一つ分の長さ
+
+	// 奥から手前に順々に線を引いていく
+	for (uint32_t xIndex = 0; xIndex <= kSubdivision; ++xIndex) {
+	
+	}
 }
