@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cmath>
 #define _USE_MATH_DEFINES
+#include <imgui.h>
 #include <math.h>
 
 const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_01_02";
@@ -14,6 +15,11 @@ struct Vector3 {
 
 struct Matrix4x4 {
 	float m[4][4];
+};
+
+struct Sphere {
+	Vector3 center;
+	float radius;
 };
 
 /// <summary>
@@ -45,7 +51,7 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 /// <param name="rotate">回転</param>
 /// <param name="translate">移動</param>
 /// <returns>変換結果</returns>
-Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate);
+Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate);
 
 /// <summary>
 /// 行列の積
@@ -82,8 +88,21 @@ static const int kColumnHeight = 20;
 /// <param name="label">計算の種類</param>
 void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
 
+/// <summary>
+/// グリッド描画関数
+/// </summary>
+/// <param name="viewProjectionMatrix">ビュー・射影行列</param>
+/// <param name="viewportMatrix">ビューポート変換行列</param>
 void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix);
 
+/// <summary>
+/// スフィア描画関数
+/// </summary>
+/// <param name="center">中心座標</param>
+/// <param name="radius">半径</param>
+/// <param name="viewProjectionMatrix">ビュー・射影行列</param>
+/// <param name="viewportMatrix">ビューポート変換行列</param>
+/// <param name="color">色</param>
 void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -95,6 +114,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// キー入力結果を受け取る箱
 	char keys[256] = {0};
 	char preKeys[256] = {0};
+
+	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
+	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
+	Sphere sphere = {
+	    {0.0f, 0.0f, 0.0f},
+        0.5f
+    };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -110,7 +136,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		// 各種行列計算
-		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {0.26f, 0.0f, 0.0f}, {0.0f, 1.9f, -6.49f});
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
@@ -125,7 +151,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere({0, 0, 0}, 1.5f, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawSphere({sphere.center.x, sphere.center.y, sphere.center.z}, sphere.radius, viewProjectionMatrix, viewportMatrix, 0x000000FF); // 黒色で描画
+		ImGui::Begin("Window");
+		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
+		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
+		ImGui::DragFloat3("SphereCenter", &sphere.center.x, 0.01f);
+		ImGui::DragFloat("SphereRadius", &sphere.radius, 0.01f);
+		ImGui::End();
 
 		///
 		/// ↑描画処理ここまで
@@ -155,30 +187,6 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
 	Matrix4x4 result;
 	result = {width / 2.0f, 0, 0, 0, 0, -height / 2.0f, 0, 0, 0, 0, maxDepth - minDepth, 0, left + (width / 2.0f), top + (height / 2.0f), minDepth, 1};
-	return result;
-}
-
-Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
-	Matrix4x4 rotateMatrix = Multiply(MakeRotateXMatrix(rotate.x), Multiply(MakeRotateYMatrix(rotate.y), MakeRotateZMatrix(rotate.z)));
-
-	Matrix4x4 result;
-	result = {
-	    scale.x * rotateMatrix.m[0][0],
-	    scale.x * rotateMatrix.m[0][1],
-	    scale.x * rotateMatrix.m[0][2],
-	    0,
-	    scale.y * rotateMatrix.m[1][0],
-	    scale.y * rotateMatrix.m[1][1],
-	    scale.y * rotateMatrix.m[1][2],
-	    0,
-	    scale.z * rotateMatrix.m[2][0],
-	    scale.z * rotateMatrix.m[2][1],
-	    scale.z * rotateMatrix.m[2][2],
-	    0,
-	    translate.x,
-	    translate.y,
-	    translate.z,
-	    1};
 	return result;
 }
 
@@ -278,25 +286,138 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 	return result;
 }
 
-Matrix4x4 MakeRotateXMatrix(float radian) {
-	Matrix4x4 result;
-	result = {1, 0, 0, 0, 0, std::cosf(radian), std::sinf(radian), 0, 0, -std::sinf(radian), std::cosf(radian), 0, 0, 0, 0, 1};
+Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
+	//====================
+	// 拡縮の行列の作成
+	//====================
+	Matrix4x4 scaleMatrix4x4;
+	scaleMatrix4x4.m[0][0] = scale.x;
+	scaleMatrix4x4.m[0][1] = 0.0f;
+	scaleMatrix4x4.m[0][2] = 0.0f;
+	scaleMatrix4x4.m[0][3] = 0.0f;
 
-	return result;
-}
+	scaleMatrix4x4.m[1][0] = 0.0f;
+	scaleMatrix4x4.m[1][1] = scale.y;
+	scaleMatrix4x4.m[1][2] = 0.0f;
+	scaleMatrix4x4.m[1][3] = 0.0f;
 
-Matrix4x4 MakeRotateYMatrix(float radian) {
-	Matrix4x4 result;
-	result = {std::cosf(radian), 0, -std::sinf(radian), 0, 0, 1, 0, 0, std::sinf(radian), 0, std::cosf(radian), 0, 0, 0, 0, 1};
+	scaleMatrix4x4.m[2][0] = 0.0f;
+	scaleMatrix4x4.m[2][1] = 0.0f;
+	scaleMatrix4x4.m[2][2] = scale.z;
+	scaleMatrix4x4.m[2][3] = 0.0f;
 
-	return result;
-}
+	scaleMatrix4x4.m[3][0] = 0.0f;
+	scaleMatrix4x4.m[3][1] = 0.0f;
+	scaleMatrix4x4.m[3][2] = 0.0f;
+	scaleMatrix4x4.m[3][3] = 1.0f;
 
-Matrix4x4 MakeRotateZMatrix(float radian) {
-	Matrix4x4 result;
-	result = {std::cosf(radian), std::sinf(radian), 0, 0, -std::sinf(radian), std::cosf(radian), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+	//===================
+	// 回転の行列の作成
+	//===================
+	// Xの回転行列
+	Matrix4x4 rotateMatrixX;
+	rotateMatrixX.m[0][0] = 1.0f;
+	rotateMatrixX.m[0][1] = 0.0f;
+	rotateMatrixX.m[0][2] = 0.0f;
+	rotateMatrixX.m[0][3] = 0.0f;
 
-	return result;
+	rotateMatrixX.m[1][0] = 0.0f;
+	rotateMatrixX.m[1][1] = cosf(rotate.x);
+	rotateMatrixX.m[1][2] = sinf(rotate.x);
+	rotateMatrixX.m[1][3] = 0.0f;
+
+	rotateMatrixX.m[2][0] = 0.0f;
+	rotateMatrixX.m[2][1] = -sinf(rotate.x);
+	rotateMatrixX.m[2][2] = cosf(rotate.x);
+	rotateMatrixX.m[2][3] = 0.0f;
+
+	rotateMatrixX.m[3][0] = 0.0f;
+	rotateMatrixX.m[3][1] = 0.0f;
+	rotateMatrixX.m[3][2] = 0.0f;
+	rotateMatrixX.m[3][3] = 1.0f;
+
+	// Yの回転行列
+	Matrix4x4 rotateMatrixY;
+	rotateMatrixY.m[0][0] = cosf(rotate.y);
+	rotateMatrixY.m[0][1] = 0.0f;
+	rotateMatrixY.m[0][2] = -sinf(rotate.y);
+	rotateMatrixY.m[0][3] = 0.0f;
+
+	rotateMatrixY.m[1][0] = 0.0f;
+	rotateMatrixY.m[1][1] = 1.0f;
+	rotateMatrixY.m[1][2] = 0.0f;
+	rotateMatrixY.m[1][3] = 0.0f;
+
+	rotateMatrixY.m[2][0] = sinf(rotate.y);
+	rotateMatrixY.m[2][1] = 0.0f;
+	rotateMatrixY.m[2][2] = cosf(rotate.y);
+	rotateMatrixY.m[2][3] = 0.0f;
+
+	rotateMatrixY.m[3][0] = 0.0f;
+	rotateMatrixY.m[3][1] = 0.0f;
+	rotateMatrixY.m[3][2] = 0.0f;
+	rotateMatrixY.m[3][3] = 1.0f;
+
+	// Zの回転行列
+	Matrix4x4 rotateMatrixZ;
+	rotateMatrixZ.m[0][0] = cosf(rotate.z);
+	rotateMatrixZ.m[0][1] = sinf(rotate.z);
+	rotateMatrixZ.m[0][2] = 0.0f;
+	rotateMatrixZ.m[0][3] = 0.0f;
+
+	rotateMatrixZ.m[1][0] = -sinf(rotate.z);
+	rotateMatrixZ.m[1][1] = cosf(rotate.z);
+	rotateMatrixZ.m[1][2] = 0.0f;
+	rotateMatrixZ.m[1][3] = 0.0f;
+
+	rotateMatrixZ.m[2][0] = 0.0f;
+	rotateMatrixZ.m[2][1] = 0.0f;
+	rotateMatrixZ.m[2][2] = 1.0f;
+	rotateMatrixZ.m[2][3] = 0.0f;
+
+	rotateMatrixZ.m[3][0] = 0.0f;
+	rotateMatrixZ.m[3][1] = 0.0f;
+	rotateMatrixZ.m[3][2] = 0.0f;
+	rotateMatrixZ.m[3][3] = 1.0f;
+
+	// 回転行列の作成
+	Matrix4x4 rotateMatrix4x4;
+
+	rotateMatrix4x4 = Multiply(rotateMatrixX, Multiply(rotateMatrixY, rotateMatrixZ));
+
+	//==================
+	// 移動の行列の作成
+	//==================
+	Matrix4x4 translateMatrix4x4;
+	translateMatrix4x4.m[0][0] = 1.0f;
+	translateMatrix4x4.m[0][1] = 0.0f;
+	translateMatrix4x4.m[0][2] = 0.0f;
+	translateMatrix4x4.m[0][3] = 0.0f;
+
+	translateMatrix4x4.m[1][0] = 0.0f;
+	translateMatrix4x4.m[1][1] = 1.0f;
+	translateMatrix4x4.m[1][2] = 0.0f;
+	translateMatrix4x4.m[1][3] = 0.0f;
+
+	translateMatrix4x4.m[2][0] = 0.0f;
+	translateMatrix4x4.m[2][1] = 0.0f;
+	translateMatrix4x4.m[2][2] = 1.0f;
+	translateMatrix4x4.m[2][3] = 0.0f;
+
+	translateMatrix4x4.m[3][0] = translate.x;
+	translateMatrix4x4.m[3][1] = translate.y;
+	translateMatrix4x4.m[3][2] = translate.z;
+	translateMatrix4x4.m[3][3] = 1.0f;
+
+	//====================
+	// アフィン行列の作成
+	//====================
+	// 上で作った行列からアフィン行列を作る
+	// アフィン行列の作成（スケール→回転→移動の順）
+	Matrix4x4 affineMatrix4x4;
+	affineMatrix4x4 = Multiply(scaleMatrix4x4, Multiply(rotateMatrix4x4, translateMatrix4x4));
+
+	return affineMatrix4x4;
 }
 
 void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label) {
@@ -315,24 +436,27 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 	for (uint32_t i = 0; i <= kSubdivision; ++i) {
 		float offset = -kGridHalfWidth + i * kGridEvery;
 
-		// Z方向のライン（X軸に平行）
+		// 色を決定（中央線だけ黒、それ以外は灰色）
+		uint32_t color = (offset == 0.0f) ? 0x000000FF : 0xAAAAAAFF;
+
+		// Z方向（X軸に平行）
 		Vector3 start = {-kGridHalfWidth, 0.0f, offset};
 		Vector3 end = {kGridHalfWidth, 0.0f, offset};
 		start = Transform(Transform(start, viewProjectionMatrix), viewportMatrix);
 		end = Transform(Transform(end, viewProjectionMatrix), viewportMatrix);
-		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), 0xAAAAAAFF);
+		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), color);
 
-		// X方向のライン（Z軸に平行）
+		// X方向（Z軸に平行）
 		start = {offset, 0.0f, -kGridHalfWidth};
 		end = {offset, 0.0f, kGridHalfWidth};
 		start = Transform(Transform(start, viewProjectionMatrix), viewportMatrix);
 		end = Transform(Transform(end, viewProjectionMatrix), viewportMatrix);
-		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), 0xAAAAAAFF);
+		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), color);
 	}
 }
 
 void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-	const uint32_t kSubdivision = 20;
+	const uint32_t kSubdivision = 10;
 	const float kLatEvery = static_cast<float>(M_PI) / static_cast<float>(kSubdivision);
 	const float kLonEvery = static_cast<float>(2.0f * M_PI) / static_cast<float>(kSubdivision);
 
