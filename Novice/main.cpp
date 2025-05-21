@@ -165,7 +165,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓更新処理ここから
 		///
-		
+
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
@@ -188,10 +188,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		ImGui::Begin("Window");
-		ImGui::InputFloat3("Sphere[0].Center", &sphere[0].center.x);
-		ImGui::InputFloat("Sphere[0].Radius", &sphere[0].radius);
-		ImGui::InputFloat3("Sphere[1].Center", &sphere[1].center.x);
-		ImGui::InputFloat("Sphere[1].Radius", &sphere[1].radius);
+		ImGui::DragFloat3("Sphere[0].Center", &sphere[0].center.x, 0.01f);
+		ImGui::DragFloat("Sphere[0].Radius", &sphere[0].radius, 0.01f);
+		ImGui::DragFloat3("Sphere[1].Center", &sphere[1].center.x, 0.01f);
+		ImGui::DragFloat("Sphere[1].Radius", &sphere[1].radius, 0.01f);
 		ImGui::End();
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
