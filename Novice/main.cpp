@@ -118,7 +118,21 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 /// <param name="color">色</param>
 void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
-Vector3 Project(const Vector3& v1, const Vector3& v2);
+/// <summary>
+/// 長さ（ノルム）
+/// </summary>
+/// <param name="v">ベクトル</param>
+/// <returns>長さ</returns>
+float Length(const Vector3& v);
+
+// 球の当たり判定関数
+bool IsCollision(const Sphere& s1, const Sphere& s2) {
+	Vector3 diff = Subtract(s2.center, s1.center);
+	// 二つの球の中心点間の距離を求める
+	float distance = Length(diff);
+	// 半径の合計よりも短ければ衝突
+	return distance <= (s1.radius + s2.radius);
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -132,15 +146,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
-	Sphere sphere1 = {
-	    {0.0f, 0.0f, 0.0f},
-        0.5f
+	Sphere sphere[2] = {
+	    {{0.0f, 0.0f, 0.0f}, 0.5f},
+        {{1.0f, 0.0f, 1.0f}, 0.5f}
     };
 
-	Sphere sphere2 = {
-	    {1.0f, 0.0f, 1.0f},
-        0.5f
-    };
+	uint32_t color = WHITE;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -154,7 +165,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓更新処理ここから
 		///
-
+		
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
@@ -162,7 +173,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		float distance = Length(sphere2.center - sphere1.center);
+		if (IsCollision(sphere[0], sphere[1])) {
+			color = RED; // 衝突していたら片方赤く
+		} else {
+			color = WHITE; // 衝突していなければ白く
+		}
 
 		///
 		/// ↑更新処理ここまで
@@ -172,7 +187,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
+		ImGui::Begin("Window");
+		ImGui::InputFloat3("Sphere[0].Center", &sphere[0].center.x);
+		ImGui::InputFloat("Sphere[0].Radius", &sphere[0].radius);
+		ImGui::InputFloat3("Sphere[1].Center", &sphere[1].center.x);
+		ImGui::InputFloat("Sphere[1].Radius", &sphere[1].radius);
+		ImGui::End();
+
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
+
+		DrawSphere(sphere[0].center, sphere[0].radius, viewProjectionMatrix, viewportMatrix, color);
+		DrawSphere(sphere[1].center, sphere[1].radius, viewProjectionMatrix, viewportMatrix, WHITE);
 
 		///
 		/// ↑描画処理ここまで
@@ -504,10 +529,8 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 	}
 }
 
-Vector3 Project(const Vector3& v1, const Vector3& v2) {
-	Vector3 project;
-	float t;
-	t = ((v1.x * v2.x + v1.y * v2.y + v1.z * v2.z) / sqrtf((v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z) * (v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z)));
-	project = {v2.x * t, v2.y * t, v2.z * t};
-	return project;
+float Length(const Vector3& v) {
+	float result;
+	result = {sqrtf(powf(v.x, 2) + powf(v.y, 2) + powf(v.z, 2))};
+	return result;
 }
