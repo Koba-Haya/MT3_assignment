@@ -28,6 +28,22 @@ struct Segment {
 };
 
 /// <summary>
+/// 加算
+/// </summary>
+/// <param name="v1">加算するベクトル１</param>
+/// <param name="v2">加算するベクトル２</param>
+/// <returns>加算合計ベクトル</returns>
+Vector3 Add(const Vector3& v1, const Vector3& v2);
+
+/// <summary>
+/// 減算
+/// </summary>
+/// <param name="v1">減算するベクトル１</param>
+/// <param name="v2">減算するベクトル２</param>
+/// <returns>減算合計ベクトル</returns>
+Vector3 Subtract(const Vector3& v1, const Vector3& v2);
+
+/// <summary>
 /// 透視投影行列
 /// </summary>
 /// <param name="fovY">画角Y</param>
@@ -130,7 +146,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 clossPoint = ClosestPoint(project, segment);
 
 	Sphere pointSphere{point, 0.01f}; // 1cmの球
-	Sphere clossPointSphere{clossPoint, 0.01f};
+	Sphere closestPointSphere{clossPoint, 0.01f};
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -156,10 +172,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		// Novice::DrawLine(static_cast<int>(start.x),static_cast<int>(start.y),static_cast<int>(end.x),static_cast<int>(end.y),WHITE);
-		// DrawSphere(pointSphere, viewProjectMatrix, viewportMatrix, RED);
-		// DrawSphere(closestPointSphere,viewProjectionMatrix,viewportMatrix,BLACK);
-		// ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
+		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), WHITE);
+		DrawSphere(pointSphere.center, viewProjectMatrix, viewportMatrix, RED);
+		DrawSphere(closestPointSphere.center, viewProjectionMatrix, viewportMatrix, BLACK);
+		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
 
 		///
 		/// ↑描画処理ここまで
@@ -177,6 +193,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// ライブラリの終了
 	Novice::Finalize();
 	return 0;
+}
+
+Vector3 Add(const Vector3& v1, const Vector3& v2) {
+	Vector3 result;
+	result.x = v1.x + v2.x;
+	result.y = v1.y + v2.y;
+	result.z = v1.z + v2.z;
+	return result;
+}
+
+Vector3 Subtract(const Vector3& v1, const Vector3& v2) {
+	Vector3 result;
+	result.x = v1.x - v2.x;
+	result.y = v1.y - v2.y;
+	result.z = v1.z - v2.z;
+	return result;
 }
 
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
@@ -475,7 +507,7 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 	}
 }
 
-Vector3 Project(const Vector3& v1, const Vector3& v2) { 
+Vector3 Project(const Vector3& v1, const Vector3& v2) {
 	Vector3 project;
 	float t;
 	t = ((v1.x * v2.x + v1.y * v2.y + v1.z * v2.z) / sqrtf((v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z) * (v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z)));
