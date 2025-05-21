@@ -22,11 +22,6 @@ struct Sphere {
 	float radius;
 };
 
-struct Segment {
-	Vector3 origin;
-	Vector3 diff;
-};
-
 /// <summary>
 /// 加算
 /// </summary>
@@ -125,8 +120,6 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 
 Vector3 Project(const Vector3& v1, const Vector3& v2);
 
-Vector3 ClosestPoint(const Vector3& project, const Segment segment);
-
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -137,21 +130,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = {0};
 	char preKeys[256] = {0};
 
-	Segment segment = {
-	    {-2.0f, -1.0f, 0.0f}, // origin
-	    {3.0f,  2.0f,  2.0f}  // diff
-	};
-	Vector3 point = {-1.5f, 0.6f, 0.6f};
-	Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
-	Vector3 clossPoint = ClosestPoint(project, segment);
-
-	Sphere pointSphere{point, 0.01f}; // 1cmの球
-	Sphere closestPointSphere{clossPoint, 0.01f};
-
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
-	Sphere sphere = {
+	Sphere sphere1 = {
 	    {0.0f, 0.0f, 0.0f},
+        0.5f
+    };
+
+	Sphere sphere2 = {
+	    {1.0f, 0.0f, 1.0f},
         0.5f
     };
 
@@ -168,17 +155,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
-		// 値変更
-		ImGui::InputFloat3("Point", &point.x);
-		ImGui::InputFloat3("Segment origin", &segment.origin.x);
-		ImGui::InputFloat3("Segment diff", &segment.diff.x);
-
-		// 再計算
-		project = Project(Subtract(point, segment.origin), segment.diff);
-		clossPoint = ClosestPoint(project, segment);
-		pointSphere.center = point;
-		closestPointSphere.center = clossPoint;
-
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
@@ -186,8 +162,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
-		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
+		float distance = Length(sphere2.center - sphere1.center);
 
 		///
 		/// ↑更新処理ここまで
@@ -198,12 +173,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), WHITE);
-
-		DrawSphere(pointSphere.center, pointSphere.radius, viewProjectionMatrix, viewportMatrix, RED);
-		DrawSphere(closestPointSphere.center, closestPointSphere.radius, viewProjectionMatrix, viewportMatrix, BLACK);
-
-		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
 
 		///
 		/// ↑描画処理ここまで
@@ -541,10 +510,4 @@ Vector3 Project(const Vector3& v1, const Vector3& v2) {
 	t = ((v1.x * v2.x + v1.y * v2.y + v1.z * v2.z) / sqrtf((v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z) * (v2.x * v2.x) + (v2.y * v2.y) + (v2.z * v2.z)));
 	project = {v2.x * t, v2.y * t, v2.z * t};
 	return project;
-}
-
-Vector3 ClosestPoint(const Vector3& project, const Segment segment) {
-	Vector3 closestPoint;
-	closestPoint = {segment.origin.x + project.x, segment.origin.y + project.y, segment.origin.z + project.z};
-	return closestPoint;
 }
