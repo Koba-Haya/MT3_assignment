@@ -148,6 +148,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Sphere pointSphere{point, 0.01f}; // 1cmの球
 	Sphere closestPointSphere{clossPoint, 0.01f};
 
+	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
+	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
+	Sphere sphere = {
+	    {0.0f, 0.0f, 0.0f},
+        0.5f
+    };
+
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -161,7 +168,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
-		Vector3 strat = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
+		// 値変更
+		ImGui::InputFloat3("Point", &point.x);
+		ImGui::InputFloat3("Segment origin", &segment.origin.x);
+		ImGui::InputFloat3("Segment diff", &segment.diff.x);
+
+		// 再計算
+		project = Project(Subtract(point, segment.origin), segment.diff);
+		clossPoint = ClosestPoint(project, segment);
+		pointSphere.center = point;
+		closestPointSphere.center = clossPoint;
+
+		// 各種行列計算
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
+		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
+		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
+
+		Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
 		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
 
 		///
@@ -172,9 +197,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
+		DrawGrid(viewProjectionMatrix, viewportMatrix);
 		Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), WHITE);
-		DrawSphere(pointSphere.center, viewProjectMatrix, viewportMatrix, RED);
-		DrawSphere(closestPointSphere.center, viewProjectionMatrix, viewportMatrix, BLACK);
+
+		DrawSphere(pointSphere.center, pointSphere.radius, viewProjectionMatrix, viewportMatrix, RED);
+		DrawSphere(closestPointSphere.center, closestPointSphere.radius, viewProjectionMatrix, viewportMatrix, BLACK);
+
 		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
 
 		///
