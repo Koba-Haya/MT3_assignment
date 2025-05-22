@@ -8,18 +8,23 @@
 const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_02_00";
 
 struct Vector3 {
-	float x;
-	float y;
-	float z;
+	float x; // X座標
+	float y; // Y座標
+	float z; // Z座標
 };
 
 struct Matrix4x4 {
-	float m[4][4];
+	float m[4][4]; // 4x4行列
 };
 
 struct Sphere {
-	Vector3 center;
-	float radius;
+	Vector3 center; // 中心点
+	float radius;   // 半径
+};
+
+struct Plane {
+	Vector3 normal; // 法線
+	float distance; // 距離
 };
 
 /// <summary>
@@ -125,14 +130,16 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 /// <returns>長さ</returns>
 float Length(const Vector3& v);
 
-// 球の当たり判定関数
-bool IsCollision(const Sphere& s1, const Sphere& s2) {
-	Vector3 diff = Subtract(s2.center, s1.center);
-	// 二つの球の中心点間の距離を求める
-	float distance = Length(diff);
-	// 半径の合計よりも短ければ衝突
-	return distance <= (s1.radius + s2.radius);
-}
+// 球と面の当たり判定関数
+bool IsCollision(const Sphere& sphere, const Plane& plane);
+
+Vector3 Perpendicular(const Vector3& vector);
+
+Vector3 Normalize(const Vector3& v);
+
+Vector3 Cross(const Vector3& v1, const Vector3& v2) { return {v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x}; }
+
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -146,9 +153,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
-	Sphere sphere[2] = {
-	    {{0.0f, 0.0f, 0.0f}, 0.5f},
-        {{1.0f, 0.0f, 1.0f}, 0.5f}
+
+	Sphere sphere = {
+	    {0.0f, 0.0f, 0.0f},
+        0.5f
+    };
+
+	Plane plane = {
+	    {0.0f, 1.0f, 0.0f},
+        0.0f
     };
 
 	uint32_t color = WHITE;
@@ -166,6 +179,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
+		// ImGui操作
+		ImGui::Begin("Window");
+		ImGui::DragFloat3("Sphere.Center", &sphere.center.x, 0.01f);
+		ImGui::DragFloat("Sphere.Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("Plane.Normal", &plane.normal.x, 0.01f);
+		ImGui::DragFloat("Plane.Distance", &plane.distance, 0.01f);
+		plane.normal = Normalize(plane.normal); // 必ずNormalize！
+		ImGui::End();
+
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
@@ -173,10 +195,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(sphere[0], sphere[1])) {
-			color = RED; // 衝突していたら片方赤く
+		if (IsCollision(sphere, plane)) {
+			color = RED;
 		} else {
-			color = WHITE; // 衝突していなければ白く
+			color = WHITE;
 		}
 
 		///
@@ -187,17 +209,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		ImGui::Begin("Window");
-		ImGui::DragFloat3("Sphere[0].Center", &sphere[0].center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &sphere[0].radius, 0.01f);
-		ImGui::DragFloat3("Sphere[1].Center", &sphere[1].center.x, 0.01f);
-		ImGui::DragFloat("Sphere[1].Radius", &sphere[1].radius, 0.01f);
-		ImGui::End();
-
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-		DrawSphere(sphere[0].center, sphere[0].radius, viewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(sphere[1].center, sphere[1].radius, viewProjectionMatrix, viewportMatrix, WHITE);
+		DrawPlane(plane, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawSphere(sphere.center, sphere.radius, viewProjectionMatrix, viewportMatrix, color);
 
 		///
 		/// ↑描画処理ここまで
@@ -533,4 +548,49 @@ float Length(const Vector3& v) {
 	float result;
 	result = {sqrtf(powf(v.x, 2) + powf(v.y, 2) + powf(v.z, 2))};
 	return result;
+}
+
+bool IsCollision(const Sphere& sphere, const Plane& plane) {
+	float distance = sphere.center.x * plane.normal.x + sphere.center.y * plane.normal.y + sphere.center.z * plane.normal.z - plane.distance;
+	return fabsf(distance) <= sphere.radius;
+}
+
+Vector3 Perpendicular(const Vector3& vector) {
+	if (vector.x != 0.0f || vector.y != 0.0f) {
+		return {-vector.y, vector.x, 0.0f};
+	}
+	return {0.0f, -vector.z, vector.y};
+}
+
+Vector3 Normalize(const Vector3& v) {
+	float len = Length(v);
+	return {v.x / len, v.y / len, v.z / len};
+}
+
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	// 平面の中心点（法線方向に distance だけ離れた位置）
+	Vector3 center = {plane.normal.x * plane.distance, plane.normal.y * plane.distance, plane.normal.z * plane.distance};
+
+	// 平面と垂直な2つのベクトルを作る
+	Vector3 tangent = Normalize(Perpendicular(plane.normal));
+	Vector3 bitangent = Normalize(Cross(plane.normal, tangent));
+
+	// 大きめのサイズで四角を作成（調整可）
+	float halfSize = 2.0f;
+	Vector3 corners[4];
+	corners[0] = Add(Add(center, {tangent.x * halfSize, tangent.y * halfSize, tangent.z * halfSize}), {bitangent.x * halfSize, bitangent.y * halfSize, bitangent.z * halfSize});
+	corners[1] = Add(Add(center, {-tangent.x * halfSize, -tangent.y * halfSize, -tangent.z * halfSize}), {bitangent.x * halfSize, bitangent.y * halfSize, bitangent.z * halfSize});
+	corners[2] = Add(Add(center, {-tangent.x * halfSize, -tangent.y * halfSize, -tangent.z * halfSize}), {-bitangent.x * halfSize, -bitangent.y * halfSize, -bitangent.z * halfSize});
+	corners[3] = Add(Add(center, {tangent.x * halfSize, tangent.y * halfSize, tangent.z * halfSize}), {-bitangent.x * halfSize, -bitangent.y * halfSize, -bitangent.z * halfSize});
+
+	// 画面座標に変換
+	for (int i = 0; i < 4; i++) {
+		corners[i] = Transform(Transform(corners[i], viewProjectionMatrix), viewportMatrix);
+	}
+
+	// 線で四角形を描く
+	for (int i = 0; i < 4; i++) {
+		int next = (i + 1) % 4;
+		Novice::DrawLine((int)corners[i].x, (int)corners[i].y, (int)corners[next].x, (int)corners[next].y, color);
+	}
 }
