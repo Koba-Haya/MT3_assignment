@@ -117,7 +117,7 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 /// <param name="viewProjectionMatrix">ビュー・射影行列</param>
 /// <param name="viewportMatrix">ビューポート変換行列</param>
 /// <param name="color">色</param>
-void DrawSegment(const Vector3& origin, Vector3 diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+void DrawSegment(const Vector3& origin, const Vector3& diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 /// <summary>
 /// 長さ（ノルム）
@@ -125,6 +125,14 @@ void DrawSegment(const Vector3& origin, Vector3 diff, const Matrix4x4& viewProje
 /// <param name="v">ベクトル</param>
 /// <returns>長さ</returns>
 float Length(const Vector3& v);
+
+/// <summary>
+/// 内積
+/// </summary>
+/// <param name="v1">計算されるベクトル１</param>
+/// <param name="v2">計算されるベクトル２</param>
+/// <returns>合計値</returns>
+float Dot(const Vector3& v1, const Vector3& v2);
 
 // 球と面の当たり判定関数
 bool IsCollision(const Segment& segment, const Plane& plane);
@@ -152,11 +160,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	Segment segment = {
 	    {0.0f, 0.0f, 0.0f},
-        1.0f
+        {1.0f, 1.0f, 0.0f}
     };
 
 	Plane plane = {
-	    {0.0f, 1.0f, 0.0f},
+	    {0.0f, 3.0f, 0.0f},
         0.0f
     };
 
@@ -208,7 +216,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
 		DrawPlane(plane, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
-		DrawSphere(sphere.center, sphere.radius, viewProjectionMatrix, viewportMatrix, color);
+		DrawSegment(segment.origin, segment.diff, viewProjectionMatrix, viewportMatrix, color);
 
 		///
 		/// ↑描画処理ここまで
@@ -514,11 +522,11 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 	}
 }
 
-void DrawSegment(Vector3 origin, Vector3 diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-	origin = Transform(Transform(origin, viewProjectionMatrix), viewportMatrix);
-	diff = Transform(Transform(diff, viewProjectionMatrix), viewportMatrix);
+void DrawSegment(const Vector3& origin, const Vector3& diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	Vector3 start = Transform(Transform(origin, viewProjectionMatrix), viewportMatrix);
+	Vector3 end = Transform(Transform(Add(origin, diff), viewProjectionMatrix), viewportMatrix);
 
-	Novice::DrawLine(static_cast<int>(origin.x), static_cast<int>(origin.y), static_cast<int>(diff.x), static_cast<int>(diff.y), color);
+	Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), color);
 }
 
 float Length(const Vector3& v) {
@@ -527,9 +535,15 @@ float Length(const Vector3& v) {
 	return result;
 }
 
+float Dot(const Vector3& v1, const Vector3& v2) {
+	float result;
+	result = (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
+	return result;
+}
+
 bool IsCollision(const Segment& segment, const Plane& plane) {
 	// 法線と線の内積を求めて垂直判定を行う
-	float dot = Dot(plane.normal, line.diff);
+	float dot = Dot(plane.normal, segment.diff);
 
 	// 垂直であれば平行である = 衝突していない
 	if (dot == 0.0f) {
@@ -537,10 +551,13 @@ bool IsCollision(const Segment& segment, const Plane& plane) {
 	}
 
 	// tを求める
-	float t = (plane.distance - Dot(line.origin, plane.normal)) / dot;
+	float t = (plane.distance - Dot(segment.origin, plane.normal)) / dot;
 
-	float distance = sphere.center.x * plane.normal.x + sphere.center.y * plane.normal.y + sphere.center.z * plane.normal.z - plane.distance;
-	return fabsf(distance) <= sphere.radius;
+	if (0.0f < t && t <= 1.0f) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 Vector3 Perpendicular(const Vector3& vector) {
