@@ -117,7 +117,7 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 /// <param name="viewProjectionMatrix">ビュー・射影行列</param>
 /// <param name="viewportMatrix">ビューポート変換行列</param>
 /// <param name="color">色</param>
-void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+void DrawSegment(const Vector3& origin, Vector3 diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 /// <summary>
 /// 長さ（ノルム）
@@ -150,9 +150,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	Sphere sphere = {
+	Segment segment = {
 	    {0.0f, 0.0f, 0.0f},
-        0.5f
+        1.0f
     };
 
 	Plane plane = {
@@ -177,8 +177,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("Sphere.Center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere.Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("Segment.Origin", &segment.origin.x, 0.01f);
+		ImGui::DragFloat3("Segment.Diff", &segment.diff.x, 0.01f);
 		ImGui::DragFloat3("Plane.Normal", &plane.normal.x, 0.01f);
 		ImGui::DragFloat("Plane.Distance", &plane.distance, 0.01f);
 		plane.normal = Normalize(plane.normal); // 必ずNormalize！
@@ -191,7 +191,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(sphere, plane)) {
+		if (IsCollision(segment, plane)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -514,30 +514,11 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 	}
 }
 
-void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-	const uint32_t kSubdivision = 10;
-	const float kLatEvery = static_cast<float>(M_PI) / static_cast<float>(kSubdivision);
-	const float kLonEvery = static_cast<float>(2.0f * M_PI) / static_cast<float>(kSubdivision);
+void DrawSegment(Vector3 origin, Vector3 diff, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	origin = Transform(Transform(origin, viewProjectionMatrix), viewportMatrix);
+	diff = Transform(Transform(diff, viewProjectionMatrix), viewportMatrix);
 
-	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
-		float lat = -static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
-		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
-			float lon = kLonEvery * lonIndex;
-
-			// 緯線
-			Vector3 a = {center.x + radius * cosf(lat) * cosf(lon), center.y + radius * sinf(lat), center.z + radius * cosf(lat) * sinf(lon)};
-			Vector3 b = {center.x + radius * cosf(lat + kLatEvery) * cosf(lon), center.y + radius * sinf(lat + kLatEvery), center.z + radius * cosf(lat + kLatEvery) * sinf(lon)};
-			// 経線
-			Vector3 c = {center.x + radius * cosf(lat) * cosf(lon + kLonEvery), center.y + radius * sinf(lat), center.z + radius * cosf(lat) * sinf(lon + kLonEvery)};
-
-			a = Transform(Transform(a, viewProjectionMatrix), viewportMatrix);
-			b = Transform(Transform(b, viewProjectionMatrix), viewportMatrix);
-			c = Transform(Transform(c, viewProjectionMatrix), viewportMatrix);
-
-			Novice::DrawLine(static_cast<int>(a.x), static_cast<int>(a.y), static_cast<int>(b.x), static_cast<int>(b.y), color);
-			Novice::DrawLine(static_cast<int>(a.x), static_cast<int>(a.y), static_cast<int>(c.x), static_cast<int>(c.y), color);
-		}
-	}
+	Novice::DrawLine(static_cast<int>(origin.x), static_cast<int>(origin.y), static_cast<int>(diff.x), static_cast<int>(diff.y), color);
 }
 
 float Length(const Vector3& v) {
@@ -549,6 +530,14 @@ float Length(const Vector3& v) {
 bool IsCollision(const Segment& segment, const Plane& plane) {
 	// 法線と線の内積を求めて垂直判定を行う
 	float dot = Dot(plane.normal, line.diff);
+
+	// 垂直であれば平行である = 衝突していない
+	if (dot == 0.0f) {
+		return false;
+	}
+
+	// tを求める
+	float t = (plane.distance - Dot(line.origin, plane.normal)) / dot;
 
 	float distance = sphere.center.x * plane.normal.x + sphere.center.y * plane.normal.y + sphere.center.z * plane.normal.z - plane.distance;
 	return fabsf(distance) <= sphere.radius;
@@ -590,6 +579,6 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 	// 線で四角形を描く
 	for (int i = 0; i < 4; i++) {
 		int next = (i + 1) % 4;
-		Novice::DrawLine((int)corners[i].x, (int)corners[i].y, (int)corners[next].x, (int)corners[next].y, color);
+		Novice::DrawLine(static_cast<int>(corners[i].x), static_cast<int>(corners[i].y), static_cast<int>(corners[next].x), static_cast<int>(corners[next].y), color);
 	}
 }
