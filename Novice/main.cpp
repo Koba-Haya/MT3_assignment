@@ -98,15 +98,6 @@ Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix);
 Matrix4x4 Inverse(const Matrix4x4& m);
 
 /// <summary>
-/// 描画関数
-/// </summary>
-/// <param name="x">X座標</param>
-/// <param name="y">Y座標</param>
-/// <param name="vector">描画する計算された値</param>
-/// <param name="label">計算の種類</param>
-void VectorScreenPrintf(int x, int y, const Vector3& vector, const char* label);
-
-/// <summary>
 /// グリッド描画関数
 /// </summary>
 /// <param name="viewProjectionMatrix">ビュー・射影行列</param>
@@ -131,6 +122,7 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 float Length(const Vector3& v);
 
 // 球と面の当たり判定関数
+bool IsCollision(const Sphere& sphere, const Plane& plane);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -549,6 +541,7 @@ float Length(const Vector3& v) {
 	return result;
 }
 
+bool IsCollision(const Sphere& sphere, const Plane& plane) {
 	float distance = sphere.center.x * plane.normal.x + sphere.center.y * plane.normal.y + sphere.center.z * plane.normal.z - plane.distance;
 	return fabsf(distance) <= sphere.radius;
 }
