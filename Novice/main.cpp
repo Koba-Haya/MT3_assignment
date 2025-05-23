@@ -131,7 +131,6 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 float Length(const Vector3& v);
 
 // 球と面の当たり判定関数
-bool IsCollision(const Sphere& sphere, const Plane& plane);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -550,7 +549,6 @@ float Length(const Vector3& v) {
 	return result;
 }
 
-bool IsCollision(const Sphere& sphere, const Plane& plane) {
 	float distance = sphere.center.x * plane.normal.x + sphere.center.y * plane.normal.y + sphere.center.z * plane.normal.z - plane.distance;
 	return fabsf(distance) <= sphere.radius;
 }
