@@ -182,7 +182,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	AABB aabb1 = {
+	AABB aabb = {
 	    {-0.5f, -0.5f, -0.5f},
         {0.0f,  0.0f,  0.0f }
     };
@@ -209,13 +209,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("AABB1.min", &aabb1.min.x, 0.01f);
-		ImGui::DragFloat3("AABB1.max", &aabb1.max.x, 0.01f);
+		ImGui::DragFloat3("AABB.min", &aabb.min.x, 0.01f);
+		ImGui::DragFloat3("AABB.max", &aabb.max.x, 0.01f);
 		ImGui::DragFloat3("Sphere.center", &sphere.center.x, 0.01f);
 		ImGui::DragFloat("Sphere.radius", &sphere.radius, 0.01f);
 		ImGui::DragFloat3("Camera Translate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("Camera Rotate", &cameraRotate.x, 0.01f);
 		ImGui::End();
+
+		aabb.min = {(std::min)(aabb.min.x, aabb.max.x), (std::min)(aabb.min.y, aabb.max.y), (std::min)(aabb.min.z, aabb.max.z)};
+		aabb.max = {(std::max)(aabb.min.x, aabb.max.x), (std::max)(aabb.min.y, aabb.max.y), (std::max)(aabb.min.z, aabb.max.z)};
 
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
@@ -224,7 +227,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(aabb1, sphere)) {
+		if (IsCollision(aabb, sphere)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -240,8 +243,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(sphere.center,sphere.radius, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawAABB(aabb, viewProjectionMatrix, viewportMatrix, color);
+		DrawSphere(sphere.center, sphere.radius, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
