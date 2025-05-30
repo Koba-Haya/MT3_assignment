@@ -145,7 +145,7 @@ float Length(const Vector3& v);
 float Dot(const Vector3& v1, const Vector3& v2);
 
 // 球と面の当たり判定関数
-bool IsCollision(const AABB& aabb, const Sphere& sphere);
+bool IsCollision(const AABB& aabb, const Segment& segment);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -169,6 +169,8 @@ void DrawAABB(const AABB& aabb, const Matrix4x4& viewprojectionMatrix, const Mat
 /// <param name="color">色</param>
 void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
+void UpdateCamera(Vector3& cameraTranslate, Vector3& cameraRotate, const char* keys);
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -187,9 +189,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         {0.0f,  0.0f,  0.0f }
     };
 
-	Sphere sphere = {
-	    {1.8f, 1.0f, 1.8f},
-        1.0f
+	Segment segment = {
+	    {-0.7f, 0.3f,  0.0f},
+        {2.0f,  -0.5f, 0.0f}
     };
 
 	uint32_t color = WHITE;
@@ -211,11 +213,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("AABB.min", &aabb.min.x, 0.01f);
 		ImGui::DragFloat3("AABB.max", &aabb.max.x, 0.01f);
-		ImGui::DragFloat3("Sphere.center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere.radius", &sphere.radius, 0.01f);
-		ImGui::DragFloat3("Camera Translate", &cameraTranslate.x, 0.1f);
-		ImGui::DragFloat3("Camera Rotate", &cameraRotate.x, 0.01f);
+		ImGui::DragFloat3("Segment.origin", &segment.origin.x, 0.01f);
+		ImGui::DragFloat3("Segment.diff", &segment.diff.x, 0.01f);
 		ImGui::End();
+
+		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
 		aabb.min = {(std::min)(aabb.min.x, aabb.max.x), (std::min)(aabb.min.y, aabb.max.y), (std::min)(aabb.min.z, aabb.max.z)};
 		aabb.max = {(std::max)(aabb.min.x, aabb.max.x), (std::max)(aabb.min.y, aabb.max.y), (std::max)(aabb.min.z, aabb.max.z)};
@@ -227,7 +229,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(aabb, sphere)) {
+		if (IsCollision(aabb, segment)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -244,7 +246,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
 		DrawAABB(aabb, viewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(sphere.center, sphere.radius, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawSegment(segment.origin, segment.diff, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -569,24 +571,41 @@ float Dot(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
-bool IsCollision(const AABB& aabb, const Sphere& sphere) {
-	Vector3 closestPoint{
-	    // 最近接点
-	    std::clamp(sphere.center.x, aabb.min.x, aabb.max.x), // x軸
-	    std::clamp(sphere.center.y, aabb.min.y, aabb.max.y), // y軸
-	    std::clamp(sphere.center.z, aabb.min.z, aabb.max.z)  // z軸
-	};
+bool IsCollision(const AABB& aabb, const Segment& segment) {
+	Vector3 dir = segment.diff;
 
-	// 最近接点と球の中心点との距離
-	Vector3 vector = {{closestPoint.x - sphere.center.x}, {closestPoint.y - sphere.center.y}, {closestPoint.z - sphere.center.z}};
-	float distance = Length(vector);
+	// 衝突範囲のtの初期値
+	float tmin = 0.0f;
+	float tmax = 1.0f;
 
-	// 距離が半径よりも小さければ衝突
-	if (distance <= sphere.radius) {
-		return true;
+	// 各軸でチェック
+	for (int i = 0; i < 3; ++i) {
+		float origin = (&segment.origin.x)[i];
+		float direction = (&dir.x)[i];
+		float min = (&aabb.min.x)[i];
+		float max = (&aabb.max.x)[i];
+
+		if (std::abs(direction) < 1e-6f) {
+			// 線が軸に平行 → 原点がスラブ内に無ければ衝突なし
+			if (origin < min || origin > max) {
+				return false;
+			}
+		} else {
+			// tの衝突範囲計算
+			float t1 = (min - origin) / direction;
+			float t2 = (max - origin) / direction;
+			if (t1 > t2)
+				std::swap(t1, t2);
+			tmin = (std::max)(tmin, t1);
+			tmax = (std::min)(tmax, t2);
+
+			if (tmin > tmax) {
+				return false; // 一致する範囲がない
+			}
+		}
 	}
 
-	return false; // 衝突していない
+	return true; // 衝突している
 }
 
 Vector3 Perpendicular(const Vector3& vector) {
@@ -702,4 +721,73 @@ void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjec
 			Novice::DrawLine(static_cast<int>(a.x), static_cast<int>(a.y), static_cast<int>(c.x), static_cast<int>(c.y), color);
 		}
 	}
+}
+
+void UpdateCamera(Vector3& cameraTranslate, Vector3& cameraRotate, const char* keys) {
+	const float kMoveSpeed = 0.05f;
+	const float kRotateSpeed = 0.01f;
+
+	// 回転から前方向・右方向を計算（Y軸回転のみ考慮）
+	float sinY = sinf(cameraRotate.y);
+	float cosY = cosf(cameraRotate.y);
+
+	Vector3 forward = {sinY, 0.0f, cosY}; // Z+方向が前
+	Vector3 right = {cosY, 0.0f, -sinY};  // X+方向が右
+
+	// キーによる移動
+	if (keys[DIK_W]) {
+		cameraTranslate.x += forward.x * kMoveSpeed;
+		cameraTranslate.z += forward.z * kMoveSpeed;
+	}
+	if (keys[DIK_S]) {
+		cameraTranslate.x -= forward.x * kMoveSpeed;
+		cameraTranslate.z -= forward.z * kMoveSpeed;
+	}
+	if (keys[DIK_D]) {
+		cameraTranslate.x += right.x * kMoveSpeed;
+		cameraTranslate.z += right.z * kMoveSpeed;
+	}
+	if (keys[DIK_A]) {
+		cameraTranslate.x -= right.x * kMoveSpeed;
+		cameraTranslate.z -= right.z * kMoveSpeed;
+	}
+	if (keys[DIK_E]) {
+		cameraTranslate.y += kMoveSpeed;
+	}
+	if (keys[DIK_Q]) {
+		cameraTranslate.y -= kMoveSpeed;
+	}
+
+	// 回転（矢印キー）
+	if (keys[DIK_UP]) {
+		cameraRotate.x -= kRotateSpeed;
+	}
+	if (keys[DIK_DOWN]) {
+		cameraRotate.x += kRotateSpeed;
+	}
+	if (keys[DIK_LEFT]) {
+		cameraRotate.y -= kRotateSpeed;
+	}
+	if (keys[DIK_RIGHT]) {
+		cameraRotate.y += kRotateSpeed;
+	}
+
+	// マウス回転（右ドラッグ）
+	int mouseX, mouseY;
+	Novice::GetMousePosition(&mouseX, &mouseY);
+	static int prevMouseX = mouseX;
+	static int prevMouseY = mouseY;
+
+	if (Novice::IsPressMouse(1)) {
+		int dx = mouseX - prevMouseX;
+		int dy = mouseY - prevMouseY;
+		cameraRotate.y += dx * 0.01f;
+		cameraRotate.x += dy * 0.01f;
+	}
+
+	prevMouseX = mouseX;
+	prevMouseY = mouseY;
+
+	// 上下回転は制限（90度超えないように）
+	cameraRotate.x = std::clamp(cameraRotate.x, -1.57f, 1.57f);
 }
