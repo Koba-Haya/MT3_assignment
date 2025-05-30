@@ -36,6 +36,11 @@ struct Triangle {
 	Vector3 vertices[3]; // 原点
 };
 
+struct AABB {
+	Vector3 min; // 最小点
+	Vector3 max; // 最大点
+};
+
 /// <summary>
 /// 加算
 /// </summary>
@@ -139,7 +144,7 @@ float Length(const Vector3& v);
 float Dot(const Vector3& v1, const Vector3& v2);
 
 // 球と面の当たり判定関数
-bool IsCollision(const Triangle& triangle, const Segment& segment);
+bool IsCollision(const AABB& aabb1, const AABB& aabb2);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -150,6 +155,8 @@ Vector3 Cross(const Vector3& v1, const Vector3& v2) { return {v1.y * v2.z - v1.z
 void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 void DrawTriangle(const Triangle& triangle, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
+void DrawAABB(const AABB& aabb, const Matrix4x4& viewprojectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -164,13 +171,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	Segment segment = {
-	    {0.0f, 0.0f, 0.0f},
-        {1.0f, 1.0f, 0.0f}
+	AABB aabb1 = {
+	    {-0.5f, -0.5f, -0.5f},
+        {0.0f,  0.0f,  0.0f }
     };
 
-	Triangle triangle = {
-	    {{-1.0f, 0.8f, 0.0f}, {0.8f, 1.0f, 0.0f}, {0.8f, 0.42f, -1.0f}}
+	AABB aabb2 = {
+	    {0.2f, 0.2f, 0.2f},
+        {1.0f, 1.0f, 1.0f}
     };
 
 	uint32_t color = WHITE;
@@ -190,11 +198,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("Segment.Origin", &segment.origin.x, 0.01f);
-		ImGui::DragFloat3("Segment.Diff", &segment.diff.x, 0.01f);
-		ImGui::DragFloat3("Triangle.v0", &triangle.vertices[0].x, 0.01f);
-		ImGui::DragFloat3("Triangle.v1", &triangle.vertices[1].x, 0.01f);
-		ImGui::DragFloat3("Triangle.v2", &triangle.vertices[2].x, 0.01f);
+		ImGui::DragFloat3("AABB1.min", &aabb1.min.x, 0.01f);
+		ImGui::DragFloat3("AABB1.max", &aabb1.max.x, 0.01f);
+		ImGui::DragFloat3("AABB2.min", &aabb2.min.x, 0.01f);
+		ImGui::DragFloat3("AABB2.max", &aabb2.max.x, 0.01f);
+		ImGui::DragFloat3("Camera Translate", &cameraTranslate.x, 0.1f);
+		ImGui::DragFloat3("Camera Rotate", &cameraRotate.x, 0.01f);
 		ImGui::End();
 
 		// 各種行列計算
@@ -204,7 +213,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(triangle, segment)) {
+		if (IsCollision(aabb1, aabb2)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -220,8 +229,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
-		DrawTriangle(triangle, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
-		DrawSegment(segment.origin, segment.diff, viewProjectionMatrix, viewportMatrix, color);
+		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
+		DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -546,38 +555,15 @@ float Dot(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
-bool IsCollision(const Triangle& triangle, const Segment& segment) {
-	const Vector3& v0 = triangle.vertices[0];
-	const Vector3& v1 = triangle.vertices[1];
-	const Vector3& v2 = triangle.vertices[2];
+bool IsCollision(const AABB& aabb1, const AABB& aabb2) {
+	if ((aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) && // x軸
+	    (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) && // y軸
+	    (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z)) { // z軸
 
-	Vector3 dir = segment.diff;
-	Vector3 orig = segment.origin;
+		return true; // 衝突している
+	}
 
-	Vector3 edge1 = Subtract(v1, v0);
-	Vector3 edge2 = Subtract(v2, v0);
-	Vector3 h = Cross(dir, edge2);
-	float a = Dot(edge1, h);
-
-	if (fabs(a) < 1e-6f)
-		return false; // 平行
-
-	float f = 1.0f / a;
-	Vector3 s = Subtract(orig, v0);
-	float u = f * Dot(s, h);
-	if (u < 0.0f || u > 1.0f)
-		return false;
-
-	Vector3 q = Cross(s, edge1);
-	float v = f * Dot(dir, q);
-	if (v < 0.0f || u + v > 1.0f)
-		return false;
-
-	float t = f * Dot(edge2, q);
-	if (t < 0.0f || t > 1.0f)
-		return false; // Segment の範囲外
-
-	return true; // 衝突している
+	return false; // 衝突していない
 }
 
 Vector3 Perpendicular(const Vector3& vector) {
@@ -624,6 +610,47 @@ void DrawTriangle(const Triangle& triangle, const Matrix4x4& viewProjectionMatri
 	for (int i = 0; i < 3; ++i) {
 		Vector3 p1 = Transform(Transform(triangle.vertices[i], viewProjectionMatrix), viewportMatrix);
 		Vector3 p2 = Transform(Transform(triangle.vertices[(i + 1) % 3], viewProjectionMatrix), viewportMatrix);
-		Novice::DrawLine((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, color);
+		Novice::DrawLine(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
+	}
+}
+
+void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	// 8頂点を求める
+	Vector3 corners[8] = {
+	    {aabb.min.x, aabb.min.y, aabb.min.z},
+        {aabb.max.x, aabb.min.y, aabb.min.z},
+        {aabb.min.x, aabb.max.y, aabb.min.z},
+        {aabb.max.x, aabb.max.y, aabb.min.z},
+	    {aabb.min.x, aabb.min.y, aabb.max.z},
+        {aabb.max.x, aabb.min.y, aabb.max.z},
+        {aabb.min.x, aabb.max.y, aabb.max.z},
+        {aabb.max.x, aabb.max.y, aabb.max.z},
+	};
+
+	// 各頂点をスクリーン座標に変換
+	for (int i = 0; i < 8; ++i) {
+		corners[i] = Transform(Transform(corners[i], viewProjectionMatrix), viewportMatrix);
+	}
+
+	// 線を引く（12本）
+	const int edges[12][2] = {
+	    {0, 1},
+        {1, 3},
+        {3, 2},
+        {2, 0}, // 底面
+	    {4, 5},
+        {5, 7},
+        {7, 6},
+        {6, 4}, // 上面
+	    {0, 4},
+        {1, 5},
+        {2, 6},
+        {3, 7}  // 側面
+	};
+
+	for (int i = 0; i < 12; ++i) {
+		const Vector3& p1 = corners[edges[i][0]];
+		const Vector3& p2 = corners[edges[i][1]];
+		Novice::DrawLine(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
 	}
 }
