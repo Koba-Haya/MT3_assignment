@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cmath>
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <imgui.h>
 #include <math.h>
 
@@ -144,7 +145,7 @@ float Length(const Vector3& v);
 float Dot(const Vector3& v1, const Vector3& v2);
 
 // 球と面の当たり判定関数
-bool IsCollision(const AABB& aabb1, const AABB& aabb2);
+bool IsCollision(const AABB& aabb, const Sphere& sphere);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -176,9 +177,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         {0.0f,  0.0f,  0.0f }
     };
 
-	AABB aabb2 = {
-	    {0.2f, 0.2f, 0.2f},
-        {1.0f, 1.0f, 1.0f}
+	Sphere sphere = {
+	    {1.8f, 1.0f, 1.8f},
+        1.0f
     };
 
 	uint32_t color = WHITE;
@@ -200,8 +201,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("AABB1.min", &aabb1.min.x, 0.01f);
 		ImGui::DragFloat3("AABB1.max", &aabb1.max.x, 0.01f);
-		ImGui::DragFloat3("AABB2.min", &aabb2.min.x, 0.01f);
-		ImGui::DragFloat3("AABB2.max", &aabb2.max.x, 0.01f);
+		ImGui::DragFloat3("Sphere.center", &sphere.center.x, 0.01f);
+		ImGui::DragFloat("Sphere.radius", &sphere.radius, 0.01f);
 		ImGui::DragFloat3("Camera Translate", &cameraTranslate.x, 0.1f);
 		ImGui::DragFloat3("Camera Rotate", &cameraRotate.x, 0.01f);
 		ImGui::End();
@@ -213,7 +214,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(aabb1, aabb2)) {
+		if (IsCollision(aabb1, sphere)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -230,7 +231,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
 		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
-		DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawSphere(aabb2, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -555,12 +556,21 @@ float Dot(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
-bool IsCollision(const AABB& aabb1, const AABB& aabb2) {
-	if ((aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) && // x軸
-	    (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) && // y軸
-	    (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z)) { // z軸
+bool IsCollision(const AABB& aabb, const Sphere& sphere) {
+	Vector3 closestPoint{
+	    // 最近接点
+	    std::clamp(sphere.center.x, aabb.min.x, aabb.max.x), // x軸
+	    std::clamp(sphere.center.y, aabb.min.y, aabb.max.y), // y軸
+	    std::clamp(sphere.center.z, aabb.min.z, aabb.max.z)  // z軸
+	};
 
-		return true; // 衝突している
+	// 最近接点と球の中心点との距離
+	Vector3 vector = {{closestPoint.x - sphere.center.x}, {closestPoint.y - sphere.center.y}, {closestPoint.z - sphere.center.z}};
+	float distance = Length(vector);
+
+	// 距離が半径よりも小さければ衝突
+	if (distance <= sphere.radius) {
+		return true;
 	}
 
 	return false; // 衝突していない
