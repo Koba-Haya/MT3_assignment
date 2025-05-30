@@ -159,6 +159,16 @@ void DrawTriangle(const Triangle& triangle, const Matrix4x4& viewProjectionMatri
 
 void DrawAABB(const AABB& aabb, const Matrix4x4& viewprojectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
+/// <summary>
+/// スフィア描画関数
+/// </summary>
+/// <param name="center">中心座標</param>
+/// <param name="radius">半径</param>
+/// <param name="viewProjectionMatrix">ビュー・射影行列</param>
+/// <param name="viewportMatrix">ビューポート変換行列</param>
+/// <param name="color">色</param>
+void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -231,7 +241,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
 		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
-		DrawSphere(aabb2, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
+		DrawSphere(sphere.center,sphere.radius, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
 
 		///
 		/// ↑描画処理ここまで
@@ -662,5 +672,31 @@ void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Mat
 		const Vector3& p1 = corners[edges[i][0]];
 		const Vector3& p2 = corners[edges[i][1]];
 		Novice::DrawLine(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
+	}
+}
+
+void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	const uint32_t kSubdivision = 10;
+	const float kLatEvery = static_cast<float>(M_PI) / static_cast<float>(kSubdivision);
+	const float kLonEvery = static_cast<float>(2.0f * M_PI) / static_cast<float>(kSubdivision);
+
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		float lat = -static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+			float lon = kLonEvery * lonIndex;
+
+			// 緯線
+			Vector3 a = {center.x + radius * cosf(lat) * cosf(lon), center.y + radius * sinf(lat), center.z + radius * cosf(lat) * sinf(lon)};
+			Vector3 b = {center.x + radius * cosf(lat + kLatEvery) * cosf(lon), center.y + radius * sinf(lat + kLatEvery), center.z + radius * cosf(lat + kLatEvery) * sinf(lon)};
+			// 経線
+			Vector3 c = {center.x + radius * cosf(lat) * cosf(lon + kLonEvery), center.y + radius * sinf(lat), center.z + radius * cosf(lat) * sinf(lon + kLonEvery)};
+
+			a = Transform(Transform(a, viewProjectionMatrix), viewportMatrix);
+			b = Transform(Transform(b, viewProjectionMatrix), viewportMatrix);
+			c = Transform(Transform(c, viewProjectionMatrix), viewportMatrix);
+
+			Novice::DrawLine(static_cast<int>(a.x), static_cast<int>(a.y), static_cast<int>(b.x), static_cast<int>(b.y), color);
+			Novice::DrawLine(static_cast<int>(a.x), static_cast<int>(a.y), static_cast<int>(c.x), static_cast<int>(c.y), color);
+		}
 	}
 }
