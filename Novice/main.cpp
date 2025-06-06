@@ -151,7 +151,9 @@ float Length(const Vector3& v);
 float Dot(const Vector3& v1, const Vector3& v2);
 
 // 球とOBBの当たり判定関数
-bool IsCollision(const Vector3& obbSize, const Matrix4x4& obbWorldMatrix, const Sphere& sphere);
+bool IsCollision(const AABB& aabb, const Segment& segment);
+
+bool IsCollisionOBBLine(const OBB& obb, const Matrix4x4& obbWorldMatrix, const Segment& worldsegment);
 
 Vector3 Perpendicular(const Vector3& vector);
 
@@ -175,10 +177,10 @@ void DrawAABB(const AABB& aabb, const Matrix4x4& viewprojectionMatrix, const Mat
 /// <param name="color">色</param>
 void DrawSphere(const Vector3& center, float radius, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
-void UpdateCamera(Vector3& cameraTranslate, Vector3& cameraRotate, const char* keys);
-
 //=== OBB描画関数 ===//
 void DrawOBB(const Vector3& size, const Matrix4x4& worldMatrix, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
+void UpdateCamera(Vector3& cameraTranslate, Vector3& cameraRotate, const char* keys);
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -193,15 +195,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	Sphere sphere = {
-	    {1.8f, 1.0f, 1.8f},
-        1.0f
-    };
-
 	OBB obb = {
 	    {0.0f,	           0.0f,               0.0f              },
         {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
         {1.0f,               1.0f,               1.0f              }
+    };
+
+	Segment segment = {
+	    {2.0f,  2.0f,  2.0f },
+        {-4.0f, -2.0f, -3.0f}
     };
 
 	Vector3 scale = obb.size;            // 半サイズ
@@ -230,8 +232,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("OBB Center", &obb.center.x, 0.01f);
 		ImGui::DragFloat3("OBB Size", &obb.size.x, 0.01f);
 		ImGui::DragFloat3("OBB Rotation (rad)", &rotate.x, 0.01f);
-		ImGui::DragFloat3("Sphere.center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere.radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("segment.origin", &segment.origin.x, 0.01f);
+		ImGui::DragFloat3("segment.diff", &segment.diff.x, 0.01f);
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
@@ -243,7 +245,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollision(obb.size, obbWorldMatrix, sphere)) {
+		if (IsCollisionOBBLine(obb, obbWorldMatrix, segment)) {
 			color = RED;
 		} else {
 			color = WHITE;
@@ -260,7 +262,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 
 		DrawOBB(obb.size, obbWorldMatrix, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
-		DrawSphere(sphere.center, sphere.radius, viewProjectionMatrix, viewportMatrix, color);
+		DrawSegment(segment.origin, segment.diff, viewProjectionMatrix, viewportMatrix, color);
 
 		///
 		/// ↑描画処理ここまで
@@ -585,27 +587,54 @@ float Dot(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
-bool IsCollision(const Vector3& obbSize, const Matrix4x4& obbWorldMatrix, const Sphere& sphere) {
-	// ワールド→OBBローカル空間への逆行列を作成
-	Matrix4x4 obbInverseMatrix = Inverse(obbWorldMatrix);
+bool IsCollision(const AABB& aabb, const Segment& segment) {
+	float tMin = 0.0f;
+	float tMax = 1.0f;
 
-	// 球の中心をOBBローカル空間に変換
-	Vector3 sphereCenterLocal = Transform(sphere.center, obbInverseMatrix);
+	Vector3 p = segment.origin;
+	Vector3 d = segment.diff;
 
-	// OBBローカル空間ではAABBになる（中心は原点）
-	Vector3 min = {-obbSize.x, -obbSize.y, -obbSize.z};
-	Vector3 max = {obbSize.x, obbSize.y, obbSize.z};
+	for (int i = 0; i < 3; ++i) {
+		float start = (&p.x)[i];
+		float direction = (&d.x)[i];
+		float minVal = (&aabb.min.x)[i];
+		float maxVal = (&aabb.max.x)[i];
 
-	// ローカル空間で最近接点を求める
-	Vector3 closestPoint = {
-	    std::clamp(sphereCenterLocal.x, min.x, max.x),
-	    std::clamp(sphereCenterLocal.y, min.y, max.y),
-	    std::clamp(sphereCenterLocal.z, min.z, max.z),
-	};
+		if (fabsf(direction) < 1e-6f) {
+			// 平行な場合：内側にあるか
+			if (start < minVal || start > maxVal) {
+				return false;
+			}
+		} else {
+			float t1 = (minVal - start) / direction;
+			float t2 = (maxVal - start) / direction;
+			if (t1 > t2)
+				std::swap(t1, t2);
+			tMin = (std::max)(tMin, t1);
+			tMax = (std::min)(tMax, t2);
+			if (tMin > tMax)
+				return false;
+		}
+	}
+	return true;
+}
 
-	// 距離チェック
-	Vector3 diff = Subtract(closestPoint, sphereCenterLocal);
-	return Length(diff) <= sphere.radius;
+bool IsCollisionOBBLine(const OBB& obb, const Matrix4x4& obbWorldMatrix, const Segment& worldsegment) {
+	Matrix4x4 obbInverse = Inverse(obbWorldMatrix);
+
+	Vector3 localOrigin = Transform(worldsegment.origin, obbInverse);
+	Vector3 localEnd = Transform(Add(worldsegment.origin, worldsegment.diff), obbInverse);
+
+	Segment localLine;
+	localLine.origin = localOrigin;
+	localLine.diff = Subtract(localEnd, localOrigin);
+
+	AABB localAABB = {
+	    {-obb.size.x, -obb.size.y, -obb.size.z},
+        {+obb.size.x, +obb.size.y, +obb.size.z}
+    };
+
+	return IsCollision(localAABB, localLine);
 }
 
 Vector3 Perpendicular(const Vector3& vector) {
