@@ -6,6 +6,9 @@
 #include <imgui.h>
 #include <math.h>
 
+// vLeLs = vWe 動く床などに疑似的に親子関係を結ぶ
+// vLhLeLs = vWh
+
 const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_02_00";
 
 struct Vector3 {
@@ -182,6 +185,10 @@ void DrawOBB(const Vector3& size, const Matrix4x4& worldMatrix, const Matrix4x4&
 
 void UpdateCamera(Vector3& cameraTranslate, Vector3& cameraRotate, const char* keys);
 
+Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t);
+
+void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, const Vector3& controlPoint2, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -195,22 +202,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	OBB obb = {
-	    {0.0f,	           0.0f,               0.0f              },
-        {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        {1.0f,               1.0f,               1.0f              }
+	uint32_t color = BLUE;
+
+	Vector3 controlPoint[3] = {
+	    {-0.8f, 0.58f, 1.0f },
+        {1.76f, 1.0f,  -0.3f},
+        {0.94f, -0.7f, 2.3f }
     };
-
-	Segment segment = {
-	    {2.0f,  2.0f,  2.0f },
-        {-4.0f, -2.0f, -3.0f}
-    };
-
-	Vector3 scale = obb.size;            // 半サイズ
-	Vector3 rotate = {0.0f, 0.0f, 0.0f}; // 角度（ImGuiで指定してもOK）
-	Vector3 translate = obb.center;      // 位置
-
-	uint32_t color = WHITE;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -225,15 +223,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
-		Matrix4x4 obbWorldMatrix = MakeAffineMatrix(obb.size, rotate, obb.center);
-
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("OBB Center", &obb.center.x, 0.01f);
-		ImGui::DragFloat3("OBB Size", &obb.size.x, 0.01f);
-		ImGui::DragFloat3("OBB Rotation (rad)", &rotate.x, 0.01f);
-		ImGui::DragFloat3("segment.origin", &segment.origin.x, 0.01f);
-		ImGui::DragFloat3("segment.diff", &segment.diff.x, 0.01f);
+		ImGui::DragFloat3("ControlPoint[0]", &controlPoint[0].x, 0.01f);
+		ImGui::DragFloat3("ControlPoint[1]", &controlPoint[1].x, 0.01f);
+		ImGui::DragFloat3("ControlPoint[2]", &controlPoint[2].x, 0.01f);
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
@@ -245,12 +239,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
 
-		if (IsCollisionOBBLine(obb, obbWorldMatrix, segment)) {
-			color = RED;
-		} else {
-			color = WHITE;
-		}
-
 		///
 		/// ↑更新処理ここまで
 		///
@@ -260,9 +248,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-
-		DrawOBB(obb.size, obbWorldMatrix, viewProjectionMatrix, viewportMatrix, 0xFFFFFFFF);
-		DrawSegment(segment.origin, segment.diff, viewProjectionMatrix, viewportMatrix, color);
+		Novice::DrawEllipse(static_cast<int>(controlPoint[0].x), static_cast<int>(controlPoint[0].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
+		Novice::DrawEllipse(static_cast<int>(controlPoint[1].x), static_cast<int>(controlPoint[1].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
+		Novice::DrawEllipse(static_cast<int>(controlPoint[2].x), static_cast<int>(controlPoint[2].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
+		DrawBezier(controlPoint[0], controlPoint[1], controlPoint[2], viewProjectionMatrix, viewportMatrix, color);
 
 		///
 		/// ↑描画処理ここまで
@@ -862,5 +851,42 @@ void DrawOBB(const Vector3& size, const Matrix4x4& worldMatrix, const Matrix4x4&
 		Novice::DrawLine(
 		    static_cast<int>(localCorners[indices[i][0]].x), static_cast<int>(localCorners[indices[i][0]].y), static_cast<int>(localCorners[indices[i][1]].x),
 		    static_cast<int>(localCorners[indices[i][1]].y), color);
+	}
+}
+
+Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t) {
+	Vector3 point1;
+	Vector3 point2;
+	point1 = {t * v1.x, t * v1.y, t * v1.z};
+	point2 = {(1.0f - t) * v2.x, (1.0f - t) * v2.y, (1.0f - t) * v2.z};
+	return {point1.x + point2.x, point1.y + point2.y, point1.z + point2.z};
+}
+
+Vector3 Bezier(const Vector3& p0, const Vector3& p1, const Vector3& p2, float t) {
+	Vector3 point01;
+	Vector3 point12;
+
+	point01 = Lerp(p0, p1, t);
+	point12 = Lerp(p1, p2, t);
+
+	return Lerp(point01, point12, t);
+}
+
+void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, const Vector3& controlPoint2, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+	Vector3 bezier1;
+	Vector3 bezier2;
+	Vector3 p1;
+	Vector3 p2;
+	float divide = 32.0f;
+
+	for (float index = 0.0f; index < divide; index++) {
+		float t0 = index / divide;
+		float t1 = (index + 1.0f) / divide;
+
+		bezier1 = Bezier(controlPoint0, controlPoint1, controlPoint2, t0);
+		bezier2 = Bezier(controlPoint0, controlPoint1, controlPoint2, t1);
+		p1 = Transform(Transform(bezier1, viewProjectionMatrix), viewportMatrix);
+		p2 = Transform(Transform(bezier2, viewProjectionMatrix), viewportMatrix);
+		Novice::DrawLine(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
 	}
 }
