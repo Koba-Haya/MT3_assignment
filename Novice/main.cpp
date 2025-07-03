@@ -202,12 +202,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	uint32_t color = BLUE;
+	// uint32_t color = BLUE;
 
-	Vector3 controlPoint[3] = {
-	    {-0.8f, 0.58f, 1.0f },
-        {1.76f, 1.0f,  -0.3f},
-        {0.94f, -0.7f, 2.3f }
+	Vector3 translate[3] = {
+	    {0.2f, 1.0f, 0.0f},
+        {0.4f, 0.7f, 0.0f},
+        {0.3f, 0.0f, 0.0f}
+    };
+
+	Vector3 rotate[3] = {
+	    {0.0f, 0.0f, -6.8f},
+        {0.0f, 0.0f, -1.4f},
+        {0.0f, 0.0f, 0.0f }
+    };
+
+	Vector3 scale[3] = {
+	    {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f}
     };
 
 	// ウィンドウの×ボタンが押されるまでループ
@@ -225,19 +237,42 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("ControlPoint[0]", &controlPoint[0].x, 0.01f);
-		ImGui::DragFloat3("ControlPoint[1]", &controlPoint[1].x, 0.01f);
-		ImGui::DragFloat3("ControlPoint[2]", &controlPoint[2].x, 0.01f);
+		ImGui::DragFloat3("translate[0]", &translate[0].x, 0.01f);
+		ImGui::DragFloat3("rotate[0]", &rotate[0].x, 0.01f);
+		ImGui::DragFloat3("scale[0]", &scale[0].x, 0.01f);
+		ImGui::DragFloat3("translate[1]", &translate[1].x, 0.01f);
+		ImGui::DragFloat3("rotate[1]", &rotate[1].x, 0.01f);
+		ImGui::DragFloat3("scale[1]", &scale[1].x, 0.01f);
+		ImGui::DragFloat3("translate[2]", &translate[2].x, 0.01f);
+		ImGui::DragFloat3("rotate[2]", &rotate[2].x, 0.01f);
+		ImGui::DragFloat3("scale[2]", &scale[2].x, 0.01f);
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
 		// 各種行列計算
-		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate.x, cameraRotate.y, cameraRotate.z}, {cameraTranslate.x, cameraTranslate.y, cameraTranslate.z});
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate}, {cameraTranslate});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
+
+		Matrix4x4 worldMatrix[3]; // 各ノードのワールド行列
+		Vector3 worldPos[3];      // ワールド座標の抽出用
+
+		// 親がいない肩（index 0）はローカル＝ワールド
+		worldMatrix[0] = MakeAffineMatrix(scale[0], rotate[0], translate[0]);
+		worldPos[0] = {worldMatrix[0].m[3][0], worldMatrix[0].m[3][1], worldMatrix[0].m[3][2]};
+
+		// 肘は肩に従属
+		Matrix4x4 localElbow = MakeAffineMatrix(scale[1], rotate[1], translate[1]);
+		worldMatrix[1] = Multiply(worldMatrix[0], localElbow);
+		worldPos[1] = {worldMatrix[1].m[3][0], worldMatrix[1].m[3][1], worldMatrix[1].m[3][2]};
+
+		// 手は肘に従属
+		Matrix4x4 localHand = MakeAffineMatrix(scale[2], rotate[2], translate[2]);
+		worldMatrix[2] = Multiply(worldMatrix[1], localHand);
+		worldPos[2] = {worldMatrix[2].m[3][0], worldMatrix[2].m[3][1], worldMatrix[2].m[3][2]};
 
 		///
 		/// ↑更新処理ここまで
@@ -248,10 +283,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		Novice::DrawEllipse(static_cast<int>(controlPoint[0].x), static_cast<int>(controlPoint[0].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
-		Novice::DrawEllipse(static_cast<int>(controlPoint[1].x), static_cast<int>(controlPoint[1].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
-		Novice::DrawEllipse(static_cast<int>(controlPoint[2].x), static_cast<int>(controlPoint[2].y), 1, 1, 0.0f, BLACK, kFillModeSolid);
-		DrawBezier(controlPoint[0], controlPoint[1], controlPoint[2], viewProjectionMatrix, viewportMatrix, color);
+
+		// ノード間を結ぶ線と球を描く
+		const uint32_t colors[3] = {RED, GREEN, BLUE};
+		for (int i = 0; i < 3; ++i) {
+			// 球
+			DrawSphere({worldPos[i].x, worldPos[i].y, worldPos[i].z}, 0.05f, viewProjectionMatrix, viewportMatrix, colors[i]);
+			// 線（親ノードがあれば白で結ぶ）
+			if (i > 0) {
+				Vector3 dir = Subtract({worldPos[i].x, worldPos[i].y, worldPos[i].z}, {worldPos[i - 1].x, worldPos[i - 1].y, worldPos[i - 1].z});
+				DrawSegment({worldPos[i - 1].x, worldPos[i - 1].y, worldPos[i - 1].z}, dir, viewProjectionMatrix, viewportMatrix, WHITE);
+			}
+		}
 
 		///
 		/// ↑描画処理ここまで
