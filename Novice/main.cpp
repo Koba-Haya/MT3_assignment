@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cmath>
 #define _USE_MATH_DEFINES
+#include "Vector3.h"
 #include <algorithm>
 #include <imgui.h>
 #include <math.h>
@@ -9,7 +10,7 @@
 // vLeLs = vWe 動く床などに疑似的に親子関係を結ぶ
 // vLhLeLs = vWh
 
-const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_02_00";
+const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_03_02";
 
 struct Vector3 {
 	float x; // X座標
@@ -67,6 +68,8 @@ Vector3 Add(const Vector3& v1, const Vector3& v2);
 /// <returns>減算合計ベクトル</returns>
 Vector3 Subtract(const Vector3& v1, const Vector3& v2);
 
+Vector3 Multiply(float& s, const Vector3& v);
+
 /// <summary>
 /// 透視投影行列
 /// </summary>
@@ -99,14 +102,6 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate);
 
 /// <summary>
-/// 行列の積
-/// </summary>
-/// <param name="m1">計算される行列1</param>
-/// <param name="m2">計算される行列2</param>
-/// <returns>計算結果</returns>
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2);
-
-/// <summary>
 /// 変換行列
 /// </summary>
 /// <param name="vector">次元</param>
@@ -120,6 +115,30 @@ Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix);
 /// <param name="m">変換される行列</param>
 /// <returns>変換結果</returns>
 Matrix4x4 Inverse(const Matrix4x4& m);
+
+/// <summary>
+/// 行列の和
+/// </summary>
+/// <param name="m1">計算される行列1</param>
+/// <param name="m2">計算される行列2</param>
+/// <returns>計算結果</returns>
+Matrix4x4 MatrixAdd(const Matrix4x4& m1, const Matrix4x4& m2);
+
+/// <summary>
+/// 行列の差
+/// </summary>
+/// <param name="m1">計算される行列1</param>
+/// <param name="m2">計算される行列2</param>
+/// <returns>計算結果</returns>
+Matrix4x4 MatrixSubtract(const Matrix4x4& m1, const Matrix4x4& m2);
+
+/// <summary>
+/// 行列の積
+/// </summary>
+/// <param name="m1">計算される行列1</param>
+/// <param name="m2">計算される行列2</param>
+/// <returns>計算結果</returns>
+Matrix4x4 MatrixMultiply(const Matrix4x4& m1, const Matrix4x4& m2);
 
 /// <summary>
 /// グリッド描画関数
@@ -189,6 +208,52 @@ Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t);
 
 void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, const Vector3& controlPoint2, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
+/*------------------２項演算子----------------------*/
+Vector3& operator+(const Vector3& v1, const Vector3& v2) {
+	Vector3 result = Add(v1, v2);
+	return result;
+}
+
+Vector3& operator-(const Vector3& v1, const Vector3& v2) {
+	Vector3 result = Subtract(v1, v2);
+	return result;
+}
+
+Vector3& operator*(float& s, const Vector3& v) {
+	Vector3 result = Multiply(s, v);
+	return result;
+}
+
+Vector3& operator*(const Vector3& v, float& s) { return s * v; }
+
+Vector3& operator/(const Vector3& v, float& s) {
+	float num = 1.0f / s;
+	Vector3 result = Multiply(num, v);
+	return result;
+}
+
+Matrix4x4 operator+(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result = MatrixAdd(m1, m2);
+	return result;
+}
+
+Matrix4x4 operator-(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result = MatrixSubtract(m1, m2);
+	return result;
+}
+
+Matrix4x4 operator*(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result = MatrixMultiply(m1, m2);
+	return result;
+}
+/*-------------------------------------------------------*/
+
+/*-------------------------単項演算子-------------------------------*/
+Vector3 operator-(const Vector3& v) { return {-v.x, -v.y, -v.z}; }
+
+Vector3 operator+(const Vector3& v) { return v; }
+/*----------------------------------------------------------------*/
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -204,23 +269,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// uint32_t color = BLUE;
 
-	Vector3 translate[3] = {
-	    {0.2f, 1.0f, 0.0f},
-        {0.4f, 0.7f, 0.0f},
-        {0.3f, 0.0f, 0.0f}
-    };
-
-	Vector3 rotate[3] = {
-	    {0.0f, 0.0f, -6.8f},
-        {0.0f, 0.0f, -1.4f},
-        {0.0f, 0.0f, 0.0f }
-    };
-
-	Vector3 scale[3] = {
-	    {1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f}
-    };
+	Vector3 a = {0.2f, 1.0f, 0.0f};
+	Vector3 b = {2.4f, 3.1f, 1.2f};
+	Vector3 c = a + b;
+	Vector3 d = a - b;
+	Vector3 e = a * 2.4f;
+	Vector3 rotate{0.4f, 1.43f, -0.8f};
+	Matrix4x4 rotateXMatrix = ;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -254,25 +309,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate}, {cameraTranslate});
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
-		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+		Matrix4x4 viewProjectionMatrix = MatrixMultiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0.0f, 0.0f, 1280, 720, 0.0f, 1.0f);
-
-		Matrix4x4 worldMatrix[3]; // 各ノードのワールド行列
-		Vector3 worldPos[3];      // ワールド座標の抽出用
-
-		// 親がいない肩（index 0）はローカル＝ワールド
-		worldMatrix[0] = MakeAffineMatrix(scale[0], rotate[0], translate[0]);
-		worldPos[0] = {worldMatrix[0].m[3][0], worldMatrix[0].m[3][1], worldMatrix[0].m[3][2]};
-
-		// 肘は肩に従属
-		Matrix4x4 localElbow = MakeAffineMatrix(scale[1], rotate[1], translate[1]);
-		worldMatrix[1] = Multiply(worldMatrix[0], localElbow);
-		worldPos[1] = {worldMatrix[1].m[3][0], worldMatrix[1].m[3][1], worldMatrix[1].m[3][2]};
-
-		// 手は肘に従属
-		Matrix4x4 localHand = MakeAffineMatrix(scale[2], rotate[2], translate[2]);
-		worldMatrix[2] = Multiply(worldMatrix[1], localHand);
-		worldPos[2] = {worldMatrix[2].m[3][0], worldMatrix[2].m[3][1], worldMatrix[2].m[3][2]};
 
 		///
 		/// ↑更新処理ここまで
@@ -283,18 +321,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-
-		// ノード間を結ぶ線と球を描く
-		const uint32_t colors[3] = {RED, GREEN, BLUE};
-		for (int i = 0; i < 3; ++i) {
-			// 球
-			DrawSphere({worldPos[i].x, worldPos[i].y, worldPos[i].z}, 0.05f, viewProjectionMatrix, viewportMatrix, colors[i]);
-			// 線（親ノードがあれば白で結ぶ）
-			if (i > 0) {
-				Vector3 dir = Subtract({worldPos[i].x, worldPos[i].y, worldPos[i].z}, {worldPos[i - 1].x, worldPos[i - 1].y, worldPos[i - 1].z});
-				DrawSegment({worldPos[i - 1].x, worldPos[i - 1].y, worldPos[i - 1].z}, dir, viewProjectionMatrix, viewportMatrix, WHITE);
-			}
-		}
 
 		///
 		/// ↑描画処理ここまで
@@ -330,6 +356,11 @@ Vector3 Subtract(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
+Vector3 Multiply(float& s, const Vector3& v) {
+	Vector3 result = {v.x * s, v.y * s, v.z * s};
+	return result;
+}
+
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
 	Matrix4x4 result;
 	result = {(1.0f / aspectRatio) * (1.0f / std::tanf(fovY / 2.0f)), 0, 0, 0, 0, (1.0f / std::tanf(fovY / 2.0f)), 0, 0, 0, 0, farClip / (farClip - nearClip), 1, 0, 0,
@@ -340,27 +371,6 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
 	Matrix4x4 result;
 	result = {width / 2.0f, 0, 0, 0, 0, -height / 2.0f, 0, 0, 0, 0, maxDepth - minDepth, 0, left + (width / 2.0f), top + (height / 2.0f), minDepth, 1};
-	return result;
-}
-
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
-	Matrix4x4 result;
-	result.m[0][0] = m1.m[0][0] * m2.m[0][0] + m1.m[0][1] * m2.m[1][0] + m1.m[0][2] * m2.m[2][0] + m1.m[0][3] * m2.m[3][0];
-	result.m[0][1] = m1.m[0][0] * m2.m[0][1] + m1.m[0][1] * m2.m[1][1] + m1.m[0][2] * m2.m[2][1] + m1.m[0][3] * m2.m[3][1];
-	result.m[0][2] = m1.m[0][0] * m2.m[0][2] + m1.m[0][1] * m2.m[1][2] + m1.m[0][2] * m2.m[2][2] + m1.m[0][3] * m2.m[3][2];
-	result.m[0][3] = m1.m[0][0] * m2.m[0][3] + m1.m[0][1] * m2.m[1][3] + m1.m[0][2] * m2.m[2][3] + m1.m[0][3] * m2.m[3][3];
-	result.m[1][0] = m1.m[1][0] * m2.m[0][0] + m1.m[1][1] * m2.m[1][0] + m1.m[1][2] * m2.m[2][0] + m1.m[1][3] * m2.m[3][0];
-	result.m[1][1] = m1.m[1][0] * m2.m[0][1] + m1.m[1][1] * m2.m[1][1] + m1.m[1][2] * m2.m[2][1] + m1.m[1][3] * m2.m[3][1];
-	result.m[1][2] = m1.m[1][0] * m2.m[0][2] + m1.m[1][1] * m2.m[1][2] + m1.m[1][2] * m2.m[2][2] + m1.m[1][3] * m2.m[3][2];
-	result.m[1][3] = m1.m[1][0] * m2.m[0][3] + m1.m[1][1] * m2.m[1][3] + m1.m[1][2] * m2.m[2][3] + m1.m[1][3] * m2.m[3][3];
-	result.m[2][0] = m1.m[2][0] * m2.m[0][0] + m1.m[2][1] * m2.m[1][0] + m1.m[2][2] * m2.m[2][0] + m1.m[2][3] * m2.m[3][0];
-	result.m[2][1] = m1.m[2][0] * m2.m[0][1] + m1.m[2][1] * m2.m[1][1] + m1.m[2][2] * m2.m[2][1] + m1.m[2][3] * m2.m[3][1];
-	result.m[2][2] = m1.m[2][0] * m2.m[0][2] + m1.m[2][1] * m2.m[1][2] + m1.m[2][2] * m2.m[2][2] + m1.m[2][3] * m2.m[3][2];
-	result.m[2][3] = m1.m[2][0] * m2.m[0][3] + m1.m[2][1] * m2.m[1][3] + m1.m[2][2] * m2.m[2][3] + m1.m[2][3] * m2.m[3][3];
-	result.m[3][0] = m1.m[3][0] * m2.m[0][0] + m1.m[3][1] * m2.m[1][0] + m1.m[3][2] * m2.m[2][0] + m1.m[3][3] * m2.m[3][0];
-	result.m[3][1] = m1.m[3][0] * m2.m[0][1] + m1.m[3][1] * m2.m[1][1] + m1.m[3][2] * m2.m[2][1] + m1.m[3][3] * m2.m[3][1];
-	result.m[3][2] = m1.m[3][0] * m2.m[0][2] + m1.m[3][1] * m2.m[1][2] + m1.m[3][2] * m2.m[2][2] + m1.m[3][3] * m2.m[3][2];
-	result.m[3][3] = m1.m[3][0] * m2.m[0][3] + m1.m[3][1] * m2.m[1][3] + m1.m[3][2] * m2.m[2][3] + m1.m[3][3] * m2.m[3][3];
 	return result;
 }
 
@@ -436,6 +446,69 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 	    (m.m[0][0] * m.m[1][1] * m.m[2][2] + m.m[0][1] * m.m[1][2] * m.m[2][0] + m.m[0][2] * m.m[1][0] * m.m[2][1] - m.m[0][2] * m.m[1][1] * m.m[2][0] - m.m[0][1] * m.m[1][0] * m.m[2][2] -
 	     m.m[0][0] * m.m[1][2] * m.m[2][1]) /
 	        determinant};
+	return result;
+}
+
+Matrix4x4 MatrixAdd(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result;
+	result.m[0][0] = m1.m[0][0] + m2.m[0][0];
+	result.m[0][1] = m1.m[0][1] + m2.m[0][1];
+	result.m[0][2] = m1.m[0][2] + m2.m[0][2];
+	result.m[0][3] = m1.m[0][3] + m2.m[0][3];
+	result.m[1][0] = m1.m[0][0] + m2.m[0][0];
+	result.m[1][1] = m1.m[0][1] + m2.m[0][1];
+	result.m[1][2] = m1.m[0][2] + m2.m[0][2];
+	result.m[1][3] = m1.m[0][3] + m2.m[0][3];
+	result.m[2][0] = m1.m[0][0] + m2.m[0][0];
+	result.m[2][1] = m1.m[0][1] + m2.m[0][1];
+	result.m[2][2] = m1.m[0][2] + m2.m[0][2];
+	result.m[2][3] = m1.m[0][3] + m2.m[0][3];
+	result.m[3][0] = m1.m[0][0] + m2.m[0][0];
+	result.m[3][1] = m1.m[0][1] + m2.m[0][1];
+	result.m[3][2] = m1.m[0][2] + m2.m[0][2];
+	result.m[3][3] = m1.m[0][3] + m2.m[0][3];
+	return result;
+}
+
+Matrix4x4 MatrixSubtract(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result;
+	result.m[0][0] = m1.m[0][0] - m2.m[0][0];
+	result.m[0][1] = m1.m[0][1] - m2.m[0][1];
+	result.m[0][2] = m1.m[0][2] - m2.m[0][2];
+	result.m[0][3] = m1.m[0][3] - m2.m[0][3];
+	result.m[1][0] = m1.m[0][0] - m2.m[0][0];
+	result.m[1][1] = m1.m[0][1] - m2.m[0][1];
+	result.m[1][2] = m1.m[0][2] - m2.m[0][2];
+	result.m[1][3] = m1.m[0][3] - m2.m[0][3];
+	result.m[2][0] = m1.m[0][0] - m2.m[0][0];
+	result.m[2][1] = m1.m[0][1] - m2.m[0][1];
+	result.m[2][2] = m1.m[0][2] - m2.m[0][2];
+	result.m[2][3] = m1.m[0][3] - m2.m[0][3];
+	result.m[3][0] = m1.m[0][0] - m2.m[0][0];
+	result.m[3][1] = m1.m[0][1] - m2.m[0][1];
+	result.m[3][2] = m1.m[0][2] - m2.m[0][2];
+	result.m[3][3] = m1.m[0][3] - m2.m[0][3];
+	return result;
+}
+
+Matrix4x4 MatrixMultiply(const Matrix4x4& m1, const Matrix4x4& m2) {
+	Matrix4x4 result;
+	result.m[0][0] = m1.m[0][0] * m2.m[0][0] + m1.m[0][1] * m2.m[1][0] + m1.m[0][2] * m2.m[2][0] + m1.m[0][3] * m2.m[3][0];
+	result.m[0][1] = m1.m[0][0] * m2.m[0][1] + m1.m[0][1] * m2.m[1][1] + m1.m[0][2] * m2.m[2][1] + m1.m[0][3] * m2.m[3][1];
+	result.m[0][2] = m1.m[0][0] * m2.m[0][2] + m1.m[0][1] * m2.m[1][2] + m1.m[0][2] * m2.m[2][2] + m1.m[0][3] * m2.m[3][2];
+	result.m[0][3] = m1.m[0][0] * m2.m[0][3] + m1.m[0][1] * m2.m[1][3] + m1.m[0][2] * m2.m[2][3] + m1.m[0][3] * m2.m[3][3];
+	result.m[1][0] = m1.m[1][0] * m2.m[0][0] + m1.m[1][1] * m2.m[1][0] + m1.m[1][2] * m2.m[2][0] + m1.m[1][3] * m2.m[3][0];
+	result.m[1][1] = m1.m[1][0] * m2.m[0][1] + m1.m[1][1] * m2.m[1][1] + m1.m[1][2] * m2.m[2][1] + m1.m[1][3] * m2.m[3][1];
+	result.m[1][2] = m1.m[1][0] * m2.m[0][2] + m1.m[1][1] * m2.m[1][2] + m1.m[1][2] * m2.m[2][2] + m1.m[1][3] * m2.m[3][2];
+	result.m[1][3] = m1.m[1][0] * m2.m[0][3] + m1.m[1][1] * m2.m[1][3] + m1.m[1][2] * m2.m[2][3] + m1.m[1][3] * m2.m[3][3];
+	result.m[2][0] = m1.m[2][0] * m2.m[0][0] + m1.m[2][1] * m2.m[1][0] + m1.m[2][2] * m2.m[2][0] + m1.m[2][3] * m2.m[3][0];
+	result.m[2][1] = m1.m[2][0] * m2.m[0][1] + m1.m[2][1] * m2.m[1][1] + m1.m[2][2] * m2.m[2][1] + m1.m[2][3] * m2.m[3][1];
+	result.m[2][2] = m1.m[2][0] * m2.m[0][2] + m1.m[2][1] * m2.m[1][2] + m1.m[2][2] * m2.m[2][2] + m1.m[2][3] * m2.m[3][2];
+	result.m[2][3] = m1.m[2][0] * m2.m[0][3] + m1.m[2][1] * m2.m[1][3] + m1.m[2][2] * m2.m[2][3] + m1.m[2][3] * m2.m[3][3];
+	result.m[3][0] = m1.m[3][0] * m2.m[0][0] + m1.m[3][1] * m2.m[1][0] + m1.m[3][2] * m2.m[2][0] + m1.m[3][3] * m2.m[3][0];
+	result.m[3][1] = m1.m[3][0] * m2.m[0][1] + m1.m[3][1] * m2.m[1][1] + m1.m[3][2] * m2.m[2][1] + m1.m[3][3] * m2.m[3][1];
+	result.m[3][2] = m1.m[3][0] * m2.m[0][2] + m1.m[3][1] * m2.m[1][2] + m1.m[3][2] * m2.m[2][2] + m1.m[3][3] * m2.m[3][2];
+	result.m[3][3] = m1.m[3][0] * m2.m[0][3] + m1.m[3][1] * m2.m[1][3] + m1.m[3][2] * m2.m[2][3] + m1.m[3][3] * m2.m[3][3];
 	return result;
 }
 
@@ -536,7 +609,7 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
 	// 回転行列の作成
 	Matrix4x4 rotateMatrix4x4;
 
-	rotateMatrix4x4 = Multiply(rotateMatrixX, Multiply(rotateMatrixY, rotateMatrixZ));
+	rotateMatrix4x4 = MatrixMultiply(rotateMatrixX, MatrixMultiply(rotateMatrixY, rotateMatrixZ));
 
 	//==================
 	// 移動の行列の作成
@@ -568,7 +641,7 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
 	// 上で作った行列からアフィン行列を作る
 	// アフィン行列の作成（スケール→回転→移動の順）
 	Matrix4x4 affineMatrix4x4;
-	affineMatrix4x4 = Multiply(scaleMatrix4x4, Multiply(rotateMatrix4x4, translateMatrix4x4));
+	affineMatrix4x4 = MatrixMultiply(scaleMatrix4x4, MatrixMultiply(rotateMatrix4x4, translateMatrix4x4));
 
 	return affineMatrix4x4;
 }
