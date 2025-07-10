@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <cmath>
 #define _USE_MATH_DEFINES
-#include "Vector3.h"
 #include <algorithm>
 #include <imgui.h>
 #include <math.h>
@@ -16,6 +15,30 @@ struct Vector3 {
 	float x; // X座標
 	float y; // Y座標
 	float z; // Z座標
+	Vector3& operator*=(float s) {
+		x *= s;
+		y *= s;
+		z *= s;
+		return *this;
+	}
+	Vector3& operator-=(const Vector3& v) {
+		x -= v.x;
+		y -= v.y;
+		z -= v.z;
+		return *this;
+	}
+	Vector3& operator+=(const Vector3& v) {
+		x += v.x;
+		y += v.y;
+		z += v.z;
+		return *this;
+	}
+	Vector3& operator/=(float s) {
+		x /= s;
+		y /= s;
+		z /= s;
+		return *this;
+	}
 };
 
 struct Matrix4x4 {
@@ -91,6 +114,12 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 /// <param name="maxDepth">最大深度値</param>
 /// <returns>スクリーン座標系</returns>
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth);
+
+Matrix4x4 MakeRotateXMatrix(float radian);
+
+Matrix4x4 MakeRotateYMatrix(float radian);
+
+Matrix4x4 MakeRotateZMatrix(float radian);
 
 /// <summary>
 /// 3次元アフィン変換行列
@@ -209,27 +238,19 @@ Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t);
 void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, const Vector3& controlPoint2, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
 /*------------------２項演算子----------------------*/
-Vector3& operator+(const Vector3& v1, const Vector3& v2) {
-	Vector3 result = Add(v1, v2);
-	return result;
+Vector3 operator+(const Vector3& v1, const Vector3& v2) { return Add(v1, v2); }
+
+Vector3 operator-(const Vector3& v1, const Vector3& v2) { return Subtract(v1, v2); }
+
+Vector3 operator*(float s, const Vector3& v) { return Multiply(s, v); }
+
+Vector3 operator*(const Vector3& v, float s) {
+	return Multiply(s, v); // 逆順でも使えるように同じ実装
 }
 
-Vector3& operator-(const Vector3& v1, const Vector3& v2) {
-	Vector3 result = Subtract(v1, v2);
-	return result;
-}
-
-Vector3& operator*(float& s, const Vector3& v) {
-	Vector3 result = Multiply(s, v);
-	return result;
-}
-
-Vector3& operator*(const Vector3& v, float& s) { return s * v; }
-
-Vector3& operator/(const Vector3& v, float& s) {
-	float num = 1.0f / s;
-	Vector3 result = Multiply(num, v);
-	return result;
+Vector3 operator/(const Vector3& v, float s) {
+	float inv = 1.0f / s;
+	return Multiply(inv, v);
 }
 
 Matrix4x4 operator+(const Matrix4x4& m1, const Matrix4x4& m2) {
@@ -275,7 +296,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 d = a - b;
 	Vector3 e = a * 2.4f;
 	Vector3 rotate{0.4f, 1.43f, -0.8f};
-	Matrix4x4 rotateXMatrix = ;
+	Matrix4x4 rotateXMatrix = MakeRotateXMatrix(rotate.x);
+	Matrix4x4 rotateYMatrix = MakeRotateYMatrix(rotate.y);
+	Matrix4x4 rotateZMatrix = MakeRotateZMatrix(rotate.z);
+	Matrix4x4 rotateMatrix = rotateXMatrix * rotateYMatrix * rotateZMatrix;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -292,15 +316,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("translate[0]", &translate[0].x, 0.01f);
-		ImGui::DragFloat3("rotate[0]", &rotate[0].x, 0.01f);
-		ImGui::DragFloat3("scale[0]", &scale[0].x, 0.01f);
-		ImGui::DragFloat3("translate[1]", &translate[1].x, 0.01f);
-		ImGui::DragFloat3("rotate[1]", &rotate[1].x, 0.01f);
-		ImGui::DragFloat3("scale[1]", &scale[1].x, 0.01f);
-		ImGui::DragFloat3("translate[2]", &translate[2].x, 0.01f);
-		ImGui::DragFloat3("rotate[2]", &rotate[2].x, 0.01f);
-		ImGui::DragFloat3("scale[2]", &scale[2].x, 0.01f);
+		ImGui::Text("c: %f, %f, %f", c.x, c.y, c.z);
+		ImGui::Text("d: %f, %f, %f", d.x, d.y, d.z);
+		ImGui::Text("e: %f, %f, %f", e.x, e.y, e.z);
+		ImGui::Text(
+		    "matrix: \n%f, %f, %f , %f\n%f, %f, %f , %f\n%f, %f, %f , %f\n%f, %f, %f , %f\n", rotateMatrix.m[0][0], rotateMatrix.m[0][1], rotateMatrix.m[0][2], rotateMatrix.m[0][3],
+		    rotateMatrix.m[1][0], rotateMatrix.m[1][1], rotateMatrix.m[1][2], rotateMatrix.m[1][3], rotateMatrix.m[2][0], rotateMatrix.m[2][1], rotateMatrix.m[2][2], rotateMatrix.m[2][3],
+		    rotateMatrix.m[3][0], rotateMatrix.m[3][1], rotateMatrix.m[3][2], rotateMatrix.m[3][3]);
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
@@ -371,6 +393,27 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
 	Matrix4x4 result;
 	result = {width / 2.0f, 0, 0, 0, 0, -height / 2.0f, 0, 0, 0, 0, maxDepth - minDepth, 0, left + (width / 2.0f), top + (height / 2.0f), minDepth, 1};
+	return result;
+}
+
+Matrix4x4 MakeRotateXMatrix(float radian) {
+	Matrix4x4 result;
+	result = {1, 0, 0, 0, 0, std::cosf(radian), std::sinf(radian), 0, 0, -std::sinf(radian), std::cosf(radian), 0, 0, 0, 0, 1};
+
+	return result;
+}
+
+Matrix4x4 MakeRotateYMatrix(float radian) {
+	Matrix4x4 result;
+	result = {std::cosf(radian), 0, -std::sinf(radian), 0, 0, 1, 0, 0, std::sinf(radian), 0, std::cosf(radian), 0, 0, 0, 0, 1};
+
+	return result;
+}
+
+Matrix4x4 MakeRotateZMatrix(float radian) {
+	Matrix4x4 result;
+	result = {std::cosf(radian), std::sinf(radian), 0, 0, -std::sinf(radian), std::cosf(radian), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
 	return result;
 }
 
