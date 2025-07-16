@@ -304,11 +304,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	Spring spring;
-	spring.anchor = {0.0f, 0.0f, 0.0f};
-	spring.naturalLength = 1.0f;
-	spring.stiffness = 100.0f;
-	spring.dampingCoefficient = 2.0f;
+	float angularVelocity = static_cast<float>(M_PI);
+	float angle = 0.0f;
+	bool isCircleMotion = false;
+	float radius = 1.2f;
+	Vector3 circleCenter = {0.0f, 0.0f, 0.0f};
 
 	Ball ball;
 	ball.position = {1.2f, 0.0f, 0.0f};
@@ -337,31 +337,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 
 		if (ImGui::Button("Start")) {
-			ball.position = {1.2f, 0.0f, 0.0f};
-			ball.velocity = {0.0f, 0.0f, 0.0f};
-			ball.aceleration = {0.0f, 0.0f, 0.0f};
+			angle = 0.0f;
+			isCircleMotion = true;
 		}
 
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
-		Vector3 diff = ball.position - spring.anchor;
-		float length = Length(diff);
-		if (length != 0.0f) {
-			Vector3 direction = Normalize(diff);
-			Vector3 restPosition = spring.anchor + direction * spring.naturalLength;
-			Vector3 displacement = length * (ball.position - restPosition);
-			Vector3 restoringForce = -spring.stiffness * displacement;
-			// 減衰抵抗の計算
-			Vector3 dampingForce = -spring.dampingCoefficient * ball.velocity;
-			// 減衰抵抗も加味して、物体にかかる力を決定する
-			Vector3 force = restoringForce + dampingForce;
-			ball.aceleration = force / ball.mass;
+		if (isCircleMotion) {
+			angle += angularVelocity * deltaTime; // 時間に応じて角度を加算
+			ball.position.x = circleCenter.x + radius * cosf(angle);
+			ball.position.y = circleCenter.y + radius * sinf(angle);
+			ball.position.z = circleCenter.z;
 		}
-
-		ball.velocity += ball.aceleration * deltaTime;
-		ball.position += ball.velocity * deltaTime;
 
 		// 各種行列計算
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, {cameraRotate}, {cameraTranslate});
@@ -379,7 +368,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSegment(spring.anchor, diff, viewProjectionMatrix, viewportMatrix, WHITE);
 		DrawSphere(ball.position, ball.radius, viewProjectionMatrix, viewportMatrix, ball.color);
 
 		///
