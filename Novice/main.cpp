@@ -335,6 +335,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ImGui操作
 		ImGui::Begin("Window");
+
+		if (ImGui::Button("Start")) {
+			ball.position = {1.2f, 0.0f, 0.0f};
+			ball.velocity = {0.0f, 0.0f, 0.0f};
+			ball.aceleration = {0.0f, 0.0f, 0.0f};
+		}
+
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
