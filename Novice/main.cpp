@@ -290,6 +290,8 @@ Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t);
 
 void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, const Vector3& controlPoint2, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color);
 
+Vector3 Reflect(const Vector3& input, const Vector3& normal);
+
 /*------------------２項演算子----------------------*/
 Vector3 operator+(const Vector3& v1, const Vector3& v2) { return Add(v1, v2); }
 
@@ -347,19 +349,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 circleCenter = {0.0f, 0.0f, 0.0f};*/
 
 	Ball ball;
-	ball.position = {0.5f, 0.37f, 0.0f};
-	ball.velocity = {0.0f, 0.0f, 0.0f};
+	ball.position = {0.8f, 1.2f, 0.3f};
+	ball.velocity = {0.0f, -1.0f, 0.0f};
 	ball.aceleration = {0.0f, 0.0f, 0.0f};
 	ball.mass = 2.0f;
 	ball.radius = 0.05f;
 	ball.color = BLUE;
 
-	ConicalPendulum conicalPendulum;
-	conicalPendulum.anchor = {0.0f, 1.0f, 0.0f};
-	conicalPendulum.length = 0.8f;
-	conicalPendulum.halfApexAngle = 0.7f;
-	conicalPendulum.angle = 0.0f;
-	conicalPendulum.angularVelocity = 0.0f;
+	Plane plane;
+	plane.normal = Normalize({-0.2f, 0.9f, -0.3f});
+	plane.distance = 0.0f;
 
 	bool isMotion = false;
 
@@ -382,8 +381,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 
 		if (ImGui::Button("Start")) {
-			conicalPendulum.angle = 0.0f;
-			conicalPendulum.angularVelocity = 0.0f;
+			ball.position = {0.8f, 1.2f, 0.3f};
+			ball.velocity = {0.0f, -1.0f, 0.0f};
+			ball.aceleration = {0.0f, 0.0f, 0.0f};
 			isMotion = true;
 		}
 
@@ -392,18 +392,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
 		if (isMotion) {
-			// 角速度を計算
-			conicalPendulum.angularVelocity = std::sqrt(9.8f / (conicalPendulum.length * std::cos(conicalPendulum.halfApexAngle)));
-			conicalPendulum.angle += conicalPendulum.angularVelocity * deltaTime;
+			// 重力加速度を設定
+			ball.aceleration = {0.0f, -9.8f, 0.0f};
 
-			// 半径と高さを計算
-			float radius = std::sin(conicalPendulum.halfApexAngle) * conicalPendulum.length;
-			float height = std::cos(conicalPendulum.halfApexAngle) * conicalPendulum.length;
+			// 速度・位置更新
+			ball.velocity += ball.aceleration * deltaTime;
+			ball.position += ball.velocity * deltaTime;
 
-			// ボールの位置を更新
-			ball.position.x = conicalPendulum.anchor.x + std::cos(conicalPendulum.angle) * radius;
-			ball.position.y = conicalPendulum.anchor.y - height;
-			ball.position.z = conicalPendulum.anchor.z + std::sin(conicalPendulum.angle) * radius;
+			// 衝突判定
+			float d = Dot(ball.position, plane.normal) - plane.distance;
+			if (d <= ball.radius) {
+				// 反射ベクトル計算
+				Vector3 reflected = Reflect(ball.velocity, plane.normal);
+
+				// 速度を更新（反発係数を法線方向にだけ）
+				float e = 1.0f; // 反発係数
+				Vector3 toNormal = Dot(reflected, plane.normal) * plane.normal;
+				Vector3 tangent = reflected - toNormal;
+				ball.velocity = (-toNormal * e) + tangent;
+
+				// 地面にめり込まないよう修正
+				ball.position += plane.normal * (ball.radius - d);
+			}
 		}
 
 		// 各種行列計算
@@ -422,7 +432,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSegment(conicalPendulum.anchor, ball.position - conicalPendulum.anchor, viewProjectionMatrix, viewportMatrix, WHITE);
+		DrawPlane(plane, viewProjectionMatrix, viewportMatrix, 0xFF8888FF);
 		DrawSphere(ball.position, ball.radius, viewProjectionMatrix, viewportMatrix, ball.color);
 
 		///
@@ -1130,3 +1140,5 @@ void DrawBezier(const Vector3& controlPoint0, const Vector3& controlPoint1, cons
 		Novice::DrawLine(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
 	}
 }
+
+Vector3 Reflect(const Vector3& input, const Vector3& normal) { return input - 2.0f * Dot(input, normal) * normal; }
