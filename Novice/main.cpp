@@ -9,7 +9,7 @@
 // vLeLs = vWe 動く床などに疑似的に親子関係を結ぶ
 // vLhLeLs = vWh
 
-const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_03_02";
+const char kWindowTitle[] = "LE2B_10_コバヤシ_ハヤト_MT3_04_02";
 
 struct Vector3 {
 	float x; // X座標
@@ -91,6 +91,14 @@ struct Ball {
 	unsigned int color;  // ボールの色
 };
 
+struct Pendulum {
+	Vector3 anchor;            // アンカーポイント
+	float length;              // 紐の長さ
+	float angle;               // 現在の角度
+	float angularVelocity;     // 角速度
+	float angularAcceleration; // 角加速度
+};
+
 /// <summary>
 /// 加算
 /// </summary>
@@ -107,6 +115,12 @@ Vector3 Add(const Vector3& v1, const Vector3& v2);
 /// <returns>減算合計ベクトル</returns>
 Vector3 Subtract(const Vector3& v1, const Vector3& v2);
 
+/// <summary>
+/// 乗算
+/// </summary>
+/// <param name="s">計算される値</param>
+/// <param name="v">計算されるベクトル</param>
+/// <returns>計算結果ベクトル</returns>
 Vector3 Multiply(float& s, const Vector3& v);
 
 /// <summary>
@@ -131,10 +145,25 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 /// <returns>スクリーン座標系</returns>
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth);
 
+/// <summary>
+/// X軸回転行列
+/// </summary>
+/// <param name="radian">ラジアン</param>
+/// <returns>回転結果行列</returns>
 Matrix4x4 MakeRotateXMatrix(float radian);
 
+/// <summary>
+/// Y軸回転行列
+/// </summary>
+/// <param name="radian">ラジアン</param>
+/// <returns>回転結果行列</returns>
 Matrix4x4 MakeRotateYMatrix(float radian);
 
+/// <summary>
+/// Z軸回転行列
+/// </summary>
+/// <param name="radian">ラジアン</param>
+/// <returns>回転結果行列</returns>
 Matrix4x4 MakeRotateZMatrix(float radian);
 
 /// <summary>
@@ -304,11 +333,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraTranslate = {0.0f, 1.9f, -6.49f};
 	Vector3 cameraRotate = {0.26f, 0.0f, 0.0f};
 
-	float angularVelocity = static_cast<float>(M_PI);
+	/*float angularVelocity = static_cast<float>(M_PI);
 	float angle = 0.0f;
-	bool isCircleMotion = false;
 	float radius = 1.2f;
-	Vector3 circleCenter = {0.0f, 0.0f, 0.0f};
+	Vector3 circleCenter = {0.0f, 0.0f, 0.0f};*/
 
 	Ball ball;
 	ball.position = {1.2f, 0.0f, 0.0f};
@@ -317,6 +345,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ball.mass = 2.0f;
 	ball.radius = 0.05f;
 	ball.color = BLUE;
+
+	Pendulum pendulum;
+	pendulum.anchor = {0.0f, 1.0f, 0.0f};
+	pendulum.length = 0.8f;
+	pendulum.angle = 0.7f;
+	pendulum.angularVelocity = 0.0f;
+	pendulum.angularAcceleration = 0.0f;
+
+	bool isMotion = false;
 
 	float deltaTime = 1.0f / 60.0f;
 
@@ -337,19 +374,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 
 		if (ImGui::Button("Start")) {
-			angle = 0.0f;
-			isCircleMotion = true;
+			pendulum.anchor = {0.0f, 1.0f, 0.0f};
+			pendulum.angle = 0.7f;
+			pendulum.angularVelocity = 0.0f;
+			pendulum.angularAcceleration = 0.0f;
+			isMotion = true;
 		}
 
 		ImGui::End();
 
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
-		if (isCircleMotion) {
-			angle += angularVelocity * deltaTime; // 時間に応じて角度を加算
-			ball.position.x = circleCenter.x + radius * cosf(angle);
-			ball.position.y = circleCenter.y + radius * sinf(angle);
-			ball.position.z = circleCenter.z;
+		if (isMotion) {
+			//angle += angularVelocity * deltaTime; // 時間に応じて角度を加算
+			pendulum.angularAcceleration = -(9.8f / pendulum.length) * std::sin(pendulum.angle);
+			pendulum.angularVelocity += pendulum.angularAcceleration * deltaTime;
+			pendulum.angle += pendulum.angularVelocity * deltaTime;
+			ball.position.x = pendulum.anchor.x + std::sin(pendulum.angle)*pendulum.length;
+			ball.position.y = pendulum.anchor.y - std::cos(pendulum.angle) * pendulum.length;
+			ball.position.z = pendulum.anchor.z;
 		}
 
 		// 各種行列計算
