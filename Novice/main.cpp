@@ -339,7 +339,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 circleCenter = {0.0f, 0.0f, 0.0f};*/
 
 	Ball ball;
-	ball.position = {1.2f, 0.0f, 0.0f};
+	ball.position = {0.5f, 0.37f, 0.0f};
 	ball.velocity = {0.0f, 0.0f, 0.0f};
 	ball.aceleration = {0.0f, 0.0f, 0.0f};
 	ball.mass = 2.0f;
@@ -386,11 +386,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		UpdateCamera(cameraTranslate, cameraRotate, keys);
 
 		if (isMotion) {
-			//angle += angularVelocity * deltaTime; // 時間に応じて角度を加算
-			pendulum.angularAcceleration = -(9.8f / pendulum.length) * std::sin(pendulum.angle);
-			pendulum.angularVelocity += pendulum.angularAcceleration * deltaTime;
-			pendulum.angle += pendulum.angularVelocity * deltaTime;
-			ball.position.x = pendulum.anchor.x + std::sin(pendulum.angle)*pendulum.length;
+			pendulum.angularAcceleration = -(9.8f / pendulum.length) * std::sin(pendulum.angle); // 角加速度を計算
+			pendulum.angularVelocity += pendulum.angularAcceleration * deltaTime;                // 時間に応じて角速度を加算
+			pendulum.angle += pendulum.angularVelocity * deltaTime;                              // 時間に応じて角度を加算
+			ball.position.x = pendulum.anchor.x + std::sin(pendulum.angle) * pendulum.length;
 			ball.position.y = pendulum.anchor.y - std::cos(pendulum.angle) * pendulum.length;
 			ball.position.z = pendulum.anchor.z;
 		}
@@ -411,6 +410,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
+		DrawSegment(pendulum.anchor, ball.position - pendulum.anchor, viewProjectionMatrix, viewportMatrix, WHITE);
 		DrawSphere(ball.position, ball.radius, viewProjectionMatrix, viewportMatrix, ball.color);
 
 		///
